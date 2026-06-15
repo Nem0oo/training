@@ -193,7 +193,7 @@ app.post(['/sse', '/sse/:api_key'], requireApiKey, async (req: Request, res: Res
   } else if (!sessionId) {
     transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
-      onsessioninitialized: (sid) => httpSessions.set(sid, transport),
+      onsessioninitialized: (sid) => { httpSessions.set(sid, transport) },
     })
     transport.onclose = () => {
       if (transport.sessionId) httpSessions.delete(transport.sessionId)
