@@ -136,13 +136,14 @@ function buildMcpServer() {
 const app = express()
 app.use(express.json())
 
-// API key middleware — accepte X-Api-Key header ou Bearer token
+// API key middleware — accepte X-Api-Key header, Bearer token ou query param api_key
 function requireApiKey(req: Request, res: Response, next: NextFunction) {
   const fromHeader = req.headers['x-api-key']
   const fromBearer = req.headers.authorization?.startsWith('Bearer ')
     ? req.headers.authorization.slice(7)
     : undefined
-  const provided = fromHeader ?? fromBearer
+  const fromQuery = req.query.api_key
+  const provided = fromHeader ?? fromBearer ?? fromQuery
 
   if (!provided || provided !== API_KEY) {
     res.status(401).json({ error: 'Unauthorized — clé API invalide ou absente' })
