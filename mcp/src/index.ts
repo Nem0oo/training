@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto'
 import express, { Request, Response, NextFunction } from 'express'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -136,7 +138,6 @@ function buildMcpServer() {
 const app = express()
 app.use(express.json())
 
-// API key middleware — accepte X-Api-Key header, Bearer token, query param ou path param api_key
 function requireApiKey(req: Request, res: Response, next: NextFunction) {
   const fromHeader = req.headers['x-api-key']
   const fromBearer = req.headers.authorization?.startsWith('Bearer ')
@@ -153,23 +154,73 @@ function requireApiKey(req: Request, res: Response, next: NextFunction) {
   next()
 }
 
-// Un transport par session SSE active
-const transports = new Map<string, SSEServerTransport>()
+// --- Legacy SSE transport (GET /sse + POST /messages) ---
+const sseSessions = new Map<string, SSEServerTransport>()
+
+// --- Streamable HTTP transport (POST /sse, nouveaux clients dont Claude.ai) ---
+const httpSessions = new Map<string, StreamableHTTPServerTransport>()
 
 app.get(['/sse', '/sse/:api_key'], requireApiKey, async (req: Request, res: Response) => {
+  const sessionId = req.headers['mcp-session-id'] as string | undefined
+
+  if (sessionId) {
+    // Streamable HTTP : flux SSE d'une session existante
+    const transport = httpSessions.get(sessionId)
+    if (!transport) {
+      res.status(400).json({ error: 'Session introuvable' })
+      return
+    }
+    await transport.handleRequest(req, res)
+    return
+  }
+
+  // Legacy SSE transport
   const apiKey = (req.query.api_key ?? req.params.api_key) as string
   const transport = new SSEServerTransport(`/mcp/messages?api_key=${apiKey}`, res)
   const server = buildMcpServer()
-
-  transports.set(transport.sessionId, transport)
-  res.on('close', () => transports.delete(transport.sessionId))
-
+  sseSessions.set(transport.sessionId, transport)
+  res.on('close', () => sseSessions.delete(transport.sessionId))
   await server.connect(transport)
+})
+
+app.post(['/sse', '/sse/:api_key'], requireApiKey, async (req: Request, res: Response) => {
+  const sessionId = req.headers['mcp-session-id'] as string | undefined
+
+  let transport: StreamableHTTPServerTransport
+
+  if (sessionId && httpSessions.has(sessionId)) {
+    transport = httpSessions.get(sessionId)!
+  } else if (!sessionId) {
+    transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => randomUUID(),
+      onsessioninitialized: (sid) => httpSessions.set(sid, transport),
+    })
+    transport.onclose = () => {
+      if (transport.sessionId) httpSessions.delete(transport.sessionId)
+    }
+    await buildMcpServer().connect(transport)
+  } else {
+    res.status(400).json({ error: 'Session introuvable' })
+    return
+  }
+
+  await transport.handleRequest(req, res, req.body)
+})
+
+app.delete(['/sse', '/sse/:api_key'], requireApiKey, async (req: Request, res: Response) => {
+  const sessionId = req.headers['mcp-session-id'] as string | undefined
+  if (!sessionId || !httpSessions.has(sessionId)) {
+    res.status(404).json({ error: 'Session introuvable' })
+    return
+  }
+  const transport = httpSessions.get(sessionId)!
+  await transport.handleRequest(req, res)
+  httpSessions.delete(sessionId)
 })
 
 app.post('/messages', requireApiKey, async (req: Request, res: Response) => {
   const sessionId = req.query.sessionId as string
-  const transport = transports.get(sessionId)
+  const transport = sseSessions.get(sessionId)
   if (!transport) {
     res.status(404).json({ error: 'Session introuvable' })
     return
@@ -180,8 +231,8 @@ app.post('/messages', requireApiKey, async (req: Request, res: Response) => {
 app.get('/health', (_req: Request, res: Response) => res.json({ status: 'ok' }))
 
 app.listen(PORT, () => {
-  console.log(`MCP SSE server listening on http://0.0.0.0:${PORT}`)
-  console.log(`  SSE endpoint : GET  /sse`)
-  console.log(`  Messages     : POST /messages?sessionId=<id>`)
-  console.log(`  Auth         : X-Api-Key: <MCP_API_KEY>`)
+  console.log(`MCP server listening on http://0.0.0.0:${PORT}`)
+  console.log(`  SSE legacy   : GET  /sse`)
+  console.log(`  Streamable   : POST /sse`)
+  console.log(`  Auth         : X-Api-Key / Bearer / ?api_key`)
 })

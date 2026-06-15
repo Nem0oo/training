@@ -8,7 +8,7 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.12.0",
     "better-sqlite3": "^9.4.3",
     "express": "^4.18.2",
     "uuid": "^9.0.1"
