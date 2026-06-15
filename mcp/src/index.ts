@@ -16,7 +16,7 @@ import {
   getStats,
 } from './tools.js'
 
-const PORT = process.env.PORT ?? 3002
+const PORT = Number(process.env.PORT ?? 3002)
 const API_KEY = process.env.MCP_API_KEY
 
 if (!API_KEY) {
