@@ -1,0 +1,78 @@
+2026-06-14	24	Dimanche	Sortie 75’ sans bloc spécifique
+2026-06-15	25	Lundi	Renfo
+2026-06-16	25	Mardi	2×20’ @85% VMA, r.3’
+2026-06-17	25	Mercredi	EF 60’ @60–65% VMA
+2026-06-18	25	Jeudi	Renfo
+2026-06-19	25	Vendredi	3×4’ @92–95% VMA, r.2’30
+2026-06-20	25	Samedi	Repos
+2026-06-21	25	Dimanche	Sortie 90–105’ avec 20–30’ @allure cible
+2026-06-22	26	Lundi	Renfo
+2026-06-23	26	Mardi	3×3 km @allure cible, r.2’
+2026-06-24	26	Mercredi	EF 60’ @60–65% VMA
+2026-06-25	26	Jeudi	Renfo
+2026-06-26	26	Vendredi	40’ @ allure cible + 15s
+2026-06-27	26	Samedi	Repos
+2026-06-28	26	Dimanche	Sortie 1h45 avec 20’ @allure cible
+2026-06-29	27	Lundi	Renfo
+2026-06-30	27	Mardi	5×2 km @allure cible, r.1’
+2026-07-01	27	Mercredi	EF 60’ @60–65% VMA
+2026-07-02	27	Jeudi	Renfo
+2026-07-03	27	Vendredi	40’ @ allure cible + 15s
+2026-07-04	27	Samedi	Repos
+2026-07-05	27	Dimanche	Sortie 1h55 avec 2×15’ @4:30/km
+2026-07-06	28	Lundi	Renfo
+2026-07-07	28	Mardi	90’ EF + 20’ @allure cible
+2026-07-08	28	Mercredi	EF 60’ @60–65% VMA
+2026-07-09	28	Jeudi	Renfo
+2026-07-10	28	Vendredi	40’ @ allure cible + 15s
+2026-07-11	28	Samedi	Repos
+2026-07-12	28	Dimanche	Sortie 2h00 avec finish 25’ @allure cible
+2026-07-13	29	Lundi	Renfo
+2026-07-14	29	Mardi	3×3 km @allure cible, r.2’
+2026-07-15	29	Mercredi	EF 60’ @60–65% VMA
+2026-07-16	29	Jeudi	Renfo
+2026-07-17	29	Vendredi	40’ @ allure cible + 15s
+2026-07-18	29	Samedi	Repos
+2026-07-19	29	Dimanche	Sortie 75–85’ avec 15’ @4:45/km
+2026-07-20	30	Lundi	Renfo
+2026-07-21	30	Mardi	5×2 km @allure cible, r.1’
+2026-07-22	30	Mercredi	EF 60’ @60–65% VMA
+2026-07-23	30	Jeudi	Renfo
+2026-07-24	30	Vendredi	40’ @ allure cible + 15s
+2026-07-25	30	Samedi	Repos
+2026-07-26	30	Dimanche	Sortie 2h15 avec 2×20’ @allure cible
+2026-07-27	31	Lundi	Renfo
+2026-07-28	31	Mardi	90’ EF + 20’ @allure cible
+2026-07-29	31	Mercredi	EF 60’ @60–65% VMA
+2026-07-30	31	Jeudi	Renfo
+2026-07-31	31	Vendredi	40’ @ allure cible + 15s
+2026-08-01	31	Samedi	Repos
+2026-08-02	31	Dimanche	Sortie 2h30 avec 3×20’ @allure cible
+2026-08-03	32	Lundi	Renfo
+2026-08-04	32	Mardi	3×3 km @allure cible, r.2’
+2026-08-05	32	Mercredi	EF 60’ @60–65% VMA
+2026-08-06	32	Jeudi	Renfo
+2026-08-07	32	Vendredi	40’ @ allure cible + 15s
+2026-08-08	32	Samedi	Repos
+2026-08-09	32	Dimanche	Sortie 2h00 avec finish 30’ @4:30/km
+2026-08-10	33	Lundi	Renfo
+2026-08-11	33	Mardi	Footing EF 45’
+2026-08-12	33	Mercredi	EF 60’ @60–65% VMA
+2026-08-13	33	Jeudi	Renfo
+2026-08-14	33	Vendredi	20’ @85% VMA
+2026-08-15	33	Samedi	Repos
+2026-08-16	33	Dimanche	75–90’ avec 15’ @allure cible
+2026-08-17	34	Lundi	Renfo
+2026-08-18	34	Mardi	3×4’ @95% VMA, r.2’
+2026-08-19	34	Mercredi	EF 60’ @60–65% VMA
+2026-08-20	34	Jeudi	Renfo
+2026-08-21	34	Vendredi	20’ @85% VMA
+2026-08-22	34	Samedi	Repos
+2026-08-23	34	Dimanche	75–90’ avec 15’ @allure cible
+2026-08-24	35	Lundi	Renfo
+2026-08-25	35	Mardi	3×4’ @95% VMA, r.2’
+2026-08-26	35	Mercredi	EF 60’ @60–65% VMA
+2026-08-27	35	Jeudi	Renfo
+2026-08-28	35	Vendredi	20’ @85% VMA
+2026-08-29	35	Samedi	Repos
+2026-08-30	35	Dimanche	75–90’ avec 15’ @allure cible

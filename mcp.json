@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "coach-running": {
+      "transport": "sse",
+      "url": "http://YOUR_VPS_IP:3002/sse",
+      "headers": {
+        "X-Api-Key": "YOUR_MCP_API_KEY"
+      },
+      "description": "Coach IA — lecture/écriture des séances d'entraînement"
+    }
+  }
+}

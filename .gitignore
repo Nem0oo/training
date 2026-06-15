@@ -1,0 +1,25 @@
+# Secrets
+.env
+!.env.example
+
+# SQLite
+data/training.db
+data/training.db-shm
+data/training.db-wal
+
+# Node
+node_modules/
+*/node_modules/
+
+# Build outputs
+api/dist/
+mcp/dist/
+pwa/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

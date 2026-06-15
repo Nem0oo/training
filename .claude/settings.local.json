@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sqlite3 --version)",
+      "Bash(python3 -c \"import sqlite3; print\\('ok'\\)\")"
+    ]
+  }
+}
