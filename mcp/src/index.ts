@@ -136,14 +136,15 @@ function buildMcpServer() {
 const app = express()
 app.use(express.json())
 
-// API key middleware — accepte X-Api-Key header, Bearer token ou query param api_key
+// API key middleware — accepte X-Api-Key header, Bearer token, query param ou path param api_key
 function requireApiKey(req: Request, res: Response, next: NextFunction) {
   const fromHeader = req.headers['x-api-key']
   const fromBearer = req.headers.authorization?.startsWith('Bearer ')
     ? req.headers.authorization.slice(7)
     : undefined
   const fromQuery = req.query.api_key
-  const provided = fromHeader ?? fromBearer ?? fromQuery
+  const fromPath = req.params.api_key
+  const provided = fromHeader ?? fromBearer ?? fromQuery ?? fromPath
 
   if (!provided || provided !== API_KEY) {
     res.status(401).json({ error: 'Unauthorized — clé API invalide ou absente' })
@@ -155,8 +156,9 @@ function requireApiKey(req: Request, res: Response, next: NextFunction) {
 // Un transport par session SSE active
 const transports = new Map<string, SSEServerTransport>()
 
-app.get('/sse', requireApiKey, async (req: Request, res: Response) => {
-  const transport = new SSEServerTransport('/messages', res)
+app.get(['/sse', '/sse/:api_key'], requireApiKey, async (req: Request, res: Response) => {
+  const apiKey = (req.query.api_key ?? req.params.api_key) as string
+  const transport = new SSEServerTransport(`/mcp/messages?api_key=${apiKey}`, res)
   const server = buildMcpServer()
 
   transports.set(transport.sessionId, transport)
@@ -175,7 +177,7 @@ app.post('/messages', requireApiKey, async (req: Request, res: Response) => {
   await transport.handlePostMessage(req, res)
 })
 
-app.get('/health', (_req, res) => res.json({ status: 'ok' }))
+app.get('/health', (_req: Request, res: Response) => res.json({ status: 'ok' }))
 
 app.listen(PORT, () => {
   console.log(`MCP SSE server listening on http://0.0.0.0:${PORT}`)
