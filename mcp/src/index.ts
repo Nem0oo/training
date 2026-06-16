@@ -167,7 +167,7 @@ app.get(['/sse', '/sse/:api_key'], requireApiKey, async (req: Request, res: Resp
     // Streamable HTTP : flux SSE d'une session existante
     const transport = httpSessions.get(sessionId)
     if (!transport) {
-      res.status(400).json({ error: 'Session introuvable' })
+      res.status(404).json({ error: 'Session introuvable' })
       return
     }
     await transport.handleRequest(req, res)
@@ -190,7 +190,8 @@ app.post(['/sse', '/sse/:api_key'], requireApiKey, async (req: Request, res: Res
 
   if (sessionId && httpSessions.has(sessionId)) {
     transport = httpSessions.get(sessionId)!
-  } else if (!sessionId) {
+  } else {
+    // New session or stale session ID (server restarted) — create a fresh one
     transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (sid) => { httpSessions.set(sid, transport) },
@@ -199,9 +200,6 @@ app.post(['/sse', '/sse/:api_key'], requireApiKey, async (req: Request, res: Res
       if (transport.sessionId) httpSessions.delete(transport.sessionId)
     }
     await buildMcpServer().connect(transport)
-  } else {
-    res.status(400).json({ error: 'Session introuvable' })
-    return
   }
 
   await transport.handleRequest(req, res, req.body)
