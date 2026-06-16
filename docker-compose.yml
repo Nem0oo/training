@@ -22,7 +22,7 @@ services:
       api:
         condition: service_healthy
 
-  mcp:
+  training-mcp:
     build: ./mcp
     restart: unless-stopped
     volumes:
