@@ -3,10 +3,19 @@ import type { Seance, Stats, VMA } from '../types'
 const BASE = '/api'
 
 async function req<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = localStorage.getItem('auth_token')
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     ...options,
   })
+  if (res.status === 401) {
+    localStorage.removeItem('auth_token')
+    window.dispatchEvent(new Event('auth-expired'))
+    throw new Error('Session expirée')
+  }
   if (res.status === 204) return undefined as T
   const json = await res.json()
   if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`)
@@ -14,6 +23,10 @@ async function req<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  auth: {
+    login: (password: string) =>
+      req<{ token: string }>('/auth/login', { method: 'POST', body: JSON.stringify({ password }) }),
+  },
   seances: {
     list: (params: Record<string, string | number> = {}) => {
       const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString()
