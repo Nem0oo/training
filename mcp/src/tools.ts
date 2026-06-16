@@ -106,3 +106,7 @@ export function getStats(weeks = 4) {
     seances_cette_semaine: semaineCount,
   }
 }
+
+export function listFcZones() {
+  return db.prepare('SELECT * FROM fc_zones ORDER BY ordre ASC, fc_min ASC').all()
+}

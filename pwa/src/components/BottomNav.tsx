@@ -44,6 +44,13 @@ export function BottomNav() {
           </svg>
           VMA
         </NavLink>
+
+        <NavLink to="/fc-zones" className={linkCls}>
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.172 5.172a4 4 0 015.656 0L12 8.343l3.172-3.171a4 4 0 115.656 5.656L12 19.657l-8.828-8.829a4 4 0 010-5.656z" />
+          </svg>
+          FC
+        </NavLink>
       </div>
     </nav>
   )

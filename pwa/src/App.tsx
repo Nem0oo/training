@@ -8,6 +8,7 @@ import { SeanceDetail } from './pages/SeanceDetail'
 import { Historique } from './pages/Historique'
 import { Stats } from './pages/Stats'
 import { VMAPage } from './pages/VMA'
+import { FCZonesPage } from './pages/FCZones'
 
 export function App() {
   const [token, setToken] = useState(() => localStorage.getItem('auth_token'))
@@ -37,6 +38,7 @@ export function App() {
         <Route path="/historique" element={<Historique />} />
         <Route path="/stats" element={<Stats />} />
         <Route path="/vma" element={<VMAPage />} />
+        <Route path="/fc-zones" element={<FCZonesPage />} />
       </Routes>
       <BottomNav />
     </>
