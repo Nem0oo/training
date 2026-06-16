@@ -12,20 +12,20 @@ interface Props {
 }
 
 export function SeanceForm({ initial, onSubmit, onCancel, submitLabel = 'Enregistrer' }: Props) {
-  const [nom,     setNom]     = useState(initial?.nom     ?? '')
-  const [date,    setDate]    = useState(initial?.date    ?? new Date().toISOString().slice(0, 10))
-  const [contenu, setContenu] = useState(initial?.contenu ?? '')
-  const [type,    setType]    = useState<SeanceType>(initial?.type ?? 'endurance')
-  const [etat,    setEtat]    = useState<SeanceEtat>(initial?.etat ?? 'planifiee')
-  const [saving,  setSaving]  = useState(false)
-  const [error,   setError]   = useState('')
+  const [nom,              setNom]              = useState(initial?.nom              ?? '')
+  const [date,             setDate]             = useState(initial?.date             ?? new Date().toISOString().slice(0, 10))
+  const [contenu,          setContenu]          = useState(initial?.contenu          ?? '')
+  const [type,             setType]             = useState<SeanceType>(initial?.type ?? 'endurance')
+  const [etat,             setEtat]             = useState<SeanceEtat>(initial?.etat ?? 'planifiee')
+  const [saving,           setSaving]           = useState(false)
+  const [error,            setError]            = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     setError('')
     try {
-      await onSubmit({ nom, date, contenu, type, etat })
+      await onSubmit({ nom, date, contenu, type, etat, commentaire_coach: initial?.commentaire_coach ?? '' })
     } catch (err) {
       setError((err as Error).message)
     } finally {
