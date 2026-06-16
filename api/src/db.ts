@@ -34,4 +34,8 @@ db.exec(`
   );
 `)
 
+try {
+  db.exec(`ALTER TABLE seances ADD COLUMN commentaire_coach TEXT NOT NULL DEFAULT ''`)
+} catch { /* column already exists */ }
+
 export default db

@@ -12,6 +12,9 @@ export function SeanceDetail() {
   const [seance, setSeance] = useState<Seance | null>(null)
   const [editing, setEditing] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [editingComment, setEditingComment] = useState(false)
+  const [commentDraft, setCommentDraft] = useState('')
+  const [savingComment, setSavingComment] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -33,6 +36,22 @@ export function SeanceDetail() {
     if (!confirm('Supprimer cette séance ?')) return
     await api.seances.delete(id!)
     navigate('/planning', { replace: true })
+  }
+
+  function startEditingComment() {
+    setCommentDraft(seance?.commentaire_coach ?? '')
+    setEditingComment(true)
+  }
+
+  async function saveComment() {
+    setSavingComment(true)
+    try {
+      const updated = await api.seances.update(id!, { commentaire_coach: commentDraft })
+      setSeance(updated)
+      setEditingComment(false)
+    } finally {
+      setSavingComment(false)
+    }
   }
 
   if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">Chargement…</div>
@@ -74,6 +93,51 @@ export function SeanceDetail() {
               </p>
               {seance.contenu && (
                 <p className="text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">{seance.contenu}</p>
+              )}
+            </div>
+
+            <div className="bg-slate-800 rounded-xl p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-orange-400 uppercase tracking-wide">Commentaire coach</span>
+                {!editingComment && (
+                  <button
+                    onClick={startEditingComment}
+                    className="text-xs text-slate-400 hover:text-orange-400 px-2 py-1 rounded hover:bg-slate-700 transition-colors"
+                  >
+                    {seance.commentaire_coach ? 'Modifier' : 'Ajouter'}
+                  </button>
+                )}
+              </div>
+
+              {editingComment ? (
+                <div className="space-y-2">
+                  <textarea
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-orange-500 h-28 resize-none"
+                    value={commentDraft}
+                    onChange={e => setCommentDraft(e.target.value)}
+                    placeholder="Observations, ressenti, points d'amélioration…"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveComment}
+                      disabled={savingComment}
+                      className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-semibold py-2 rounded-lg transition-colors"
+                    >
+                      {savingComment ? 'Enregistrement…' : 'Enregistrer'}
+                    </button>
+                    <button
+                      onClick={() => setEditingComment(false)}
+                      className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-semibold py-2 rounded-lg transition-colors"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              ) : seance.commentaire_coach ? (
+                <p className="text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">{seance.commentaire_coach}</p>
+              ) : (
+                <p className="text-slate-500 text-sm italic">Aucun commentaire pour le moment.</p>
               )}
             </div>
 

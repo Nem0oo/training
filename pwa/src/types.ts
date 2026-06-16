@@ -8,6 +8,7 @@ export interface Seance {
   contenu: string
   type: SeanceType
   etat: SeanceEtat
+  commentaire_coach: string
   created_at: string
   updated_at: string
 }
