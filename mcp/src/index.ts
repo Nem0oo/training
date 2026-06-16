@@ -16,7 +16,7 @@ import {
   getStats,
 } from './tools.js'
 
-const PORT = process.env.PORT ?? 3002
+const PORT = Number(process.env.PORT ?? 3002)
 const API_KEY = process.env.MCP_API_KEY
 
 if (!API_KEY) {
@@ -230,7 +230,7 @@ app.post('/messages', requireApiKey, async (req: Request, res: Response) => {
 
 app.get('/health', (_req: Request, res: Response) => res.json({ status: 'ok' }))
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`MCP server listening on http://0.0.0.0:${PORT}`)
   console.log(`  SSE legacy   : GET  /sse`)
   console.log(`  Streamable   : POST /sse`)

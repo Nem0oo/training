@@ -24,11 +24,9 @@ services:
       api:
         condition: service_healthy
 
-  mcp:
+  training-mcp:
     build: ./mcp
     restart: unless-stopped
-    ports:
-      - "3002:3002"
     volumes:
       - ./data:/data
     environment:
