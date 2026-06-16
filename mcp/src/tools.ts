@@ -34,13 +34,14 @@ export function createSeance(data: {
   contenu?: string
   type: string
   etat?: string
+  commentaire_coach?: string
 }) {
   const now = new Date().toISOString()
   const id = uuidv4()
   db.prepare(`
-    INSERT INTO seances (id, nom, date, contenu, type, etat, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, data.nom, data.date, data.contenu ?? '', data.type, data.etat ?? 'planifiee', now, now)
+    INSERT INTO seances (id, nom, date, contenu, type, etat, commentaire_coach, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, data.nom, data.date, data.contenu ?? '', data.type, data.etat ?? 'planifiee', data.commentaire_coach ?? '', now, now)
   return getSeance(id)
 }
 
@@ -50,6 +51,7 @@ export function updateSeance(id: string, data: {
   contenu?: string
   type?: string
   etat?: string
+  commentaire_coach?: string
 }) {
   getSeance(id) // throws if not found
   const fields = Object.entries(data)

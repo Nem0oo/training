@@ -20,7 +20,7 @@ router.get('/', (req, res) => {
 })
 
 router.post('/', (req, res) => {
-  const { nom, date, contenu, type, etat } = req.body
+  const { nom, date, contenu, type, etat, commentaire_coach } = req.body
   if (!nom || !date || !type) {
     res.status(400).json({ error: 'nom, date et type sont requis' })
     return
@@ -28,9 +28,9 @@ router.post('/', (req, res) => {
   const now = new Date().toISOString()
   const id = uuidv4()
   db.prepare(`
-    INSERT INTO seances (id, nom, date, contenu, type, etat, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, nom, date, contenu ?? '', type, etat ?? 'planifiee', now, now)
+    INSERT INTO seances (id, nom, date, contenu, type, etat, commentaire_coach, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, nom, date, contenu ?? '', type, etat ?? 'planifiee', commentaire_coach ?? '', now, now)
 
   res.status(201).json({ data: db.prepare('SELECT * FROM seances WHERE id = ?').get(id) })
 })
@@ -45,7 +45,7 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM seances WHERE id = ?').get(req.params.id)
   if (!existing) { res.status(404).json({ error: 'Séance introuvable' }); return }
 
-  const allowed = ['nom', 'date', 'contenu', 'type', 'etat']
+  const allowed = ['nom', 'date', 'contenu', 'type', 'etat', 'commentaire_coach']
   const updates = Object.entries(req.body)
     .filter(([k]) => allowed.includes(k))
   if (updates.length === 0) { res.json({ data: existing }); return }
