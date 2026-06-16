@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 import seancesRouter from './routes/seances.js'
 import statsRouter from './routes/stats.js'
 import vmaRouter from './routes/vma.js'
+import fcZonesRouter from './routes/fc_zones.js'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
@@ -47,6 +48,7 @@ function requireAuth(req: express.Request, res: express.Response, next: express.
 app.use('/api/seances', requireAuth, seancesRouter)
 app.use('/api/stats', requireAuth, statsRouter)
 app.use('/api/vma', requireAuth, vmaRouter)
+app.use('/api/fc-zones', requireAuth, fcZonesRouter)
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err)

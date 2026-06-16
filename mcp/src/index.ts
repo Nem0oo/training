@@ -14,6 +14,7 @@ import {
   updateSeance,
   deleteSeance,
   getStats,
+  listFcZones,
 } from './tools.js'
 
 const PORT = Number(process.env.PORT ?? 3002)
@@ -109,6 +110,11 @@ function buildMcpServer() {
           },
         },
       },
+      {
+        name: 'list_fc_zones',
+        description: "Liste les zones de fréquence cardiaque définies par l'utilisateur (lecture seule)",
+        inputSchema: { type: 'object', properties: {} },
+      },
     ],
   }))
 
@@ -124,6 +130,7 @@ function buildMcpServer() {
         case 'update_seance': result = updateSeance(a.id as string, a as Parameters<typeof updateSeance>[1]); break
         case 'delete_seance': result = deleteSeance(a.id as string); break
         case 'get_stats':     result = getStats(a.weeks as number | undefined); break
+        case 'list_fc_zones': result = listFcZones(); break
         default: throw new Error(`Outil inconnu: ${name}`)
       }
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }

@@ -23,7 +23,17 @@ db.exec(`
     etat TEXT NOT NULL DEFAULT 'planifiee' CHECK(etat IN ('planifiee','en_cours','terminee','annulee')),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
-  )
+  );
+
+  CREATE TABLE IF NOT EXISTS fc_zones (
+    id TEXT PRIMARY KEY,
+    nom TEXT NOT NULL,
+    fc_min INTEGER NOT NULL CHECK(fc_min >= 0),
+    fc_max INTEGER NOT NULL CHECK(fc_max >= fc_min),
+    ordre INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
 `)
 
 export default db

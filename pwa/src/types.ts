@@ -27,3 +27,13 @@ export interface VMA {
   note: string
   created_at: string
 }
+
+export interface FCZone {
+  id: string
+  nom: string
+  fc_min: number
+  fc_max: number
+  ordre: number
+  created_at: string
+  updated_at: string
+}
