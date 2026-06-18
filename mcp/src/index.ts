@@ -37,14 +37,14 @@ function buildMcpServer() {
     tools: [
       {
         name: 'list_seances',
-        description: "Liste les séances d'entraînement avec filtres optionnels",
+        description: "Liste les séances d'entraînement avec filtres optionnels. Sans le filtre 'etat', retourne les séances de tous les états (planifiées, en cours, terminées, annulées).",
         inputSchema: {
           type: 'object',
           properties: {
             from:  { type: 'string', description: 'Date de début ISO (YYYY-MM-DD)' },
             to:    { type: 'string', description: 'Date de fin ISO (YYYY-MM-DD)' },
             type:  { type: 'string', enum: ['endurance','fractionne','cotes','recuperation','competition','autre'] },
-            etat:  { type: 'string', enum: ['planifiee','en_cours','terminee','annulee'] },
+            etat:  { type: 'string', enum: ['planifiee','en_cours','terminee','annulee'], description: "Filtre optionnel par état. Omettre ce champ pour récupérer les séances de tous les états." },
             limit: { type: 'number', description: 'Nombre max de résultats (défaut 50)' },
           },
         },
