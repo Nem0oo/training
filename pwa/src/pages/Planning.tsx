@@ -92,7 +92,13 @@ export function Planning() {
               </div>
               {items.length > 0 && (
                 <div className="ml-13 space-y-2 pl-13" style={{ paddingLeft: '3.25rem' }}>
-                  {items.map(s => <SeanceCard key={s.id} seance={s} />)}
+                  {items.map(s => (
+                    <SeanceCard
+                      key={s.id}
+                      seance={s}
+                      onUpdated={updated => setSeances(prev => prev.map(x => x.id === updated.id ? updated : x))}
+                    />
+                  ))}
                 </div>
               )}
             </div>

@@ -28,7 +28,14 @@ export function Historique() {
             <p className="text-xs text-slate-500 mb-1">
               {new Date(s.date).toLocaleDateString('fr', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>
-            <SeanceCard seance={s} />
+            <SeanceCard
+              seance={s}
+              onUpdated={updated => setSeances(prev =>
+                updated.etat === 'terminee'
+                  ? prev.map(x => x.id === updated.id ? updated : x)
+                  : prev.filter(x => x.id !== updated.id)
+              )}
+            />
           </div>
         ))}
       </div>
