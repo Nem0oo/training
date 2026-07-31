@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import type { VMA } from '../types'
 
@@ -60,7 +61,14 @@ export function VMAPage() {
     <div className="min-h-screen bg-slate-950 pb-20">
       <header className="sticky top-0 bg-slate-900 border-b border-slate-700 px-4 py-3 z-10">
         <div className="flex items-center justify-between max-w-lg mx-auto">
-          <h1 className="text-lg font-semibold text-slate-100">VMA & Allures</h1>
+          <div className="flex items-center gap-2">
+            <Link to="/parametres" className="text-slate-400 hover:text-slate-200 transition-colors p-1 -ml-1" aria-label="Retour aux réglages">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </Link>
+            <h1 className="text-lg font-semibold text-slate-100">VMA & Allures</h1>
+          </div>
           <button
             onClick={() => setShowForm(s => !s)}
             className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"

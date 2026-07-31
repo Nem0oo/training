@@ -9,6 +9,7 @@ import { Historique } from './pages/Historique'
 import { Stats } from './pages/Stats'
 import { VMAPage } from './pages/VMA'
 import { FCZonesPage } from './pages/FCZones'
+import { ParametresPage } from './pages/Parametres'
 
 export function App() {
   const [token, setToken] = useState(() => localStorage.getItem('auth_token'))
@@ -39,6 +40,7 @@ export function App() {
         <Route path="/stats" element={<Stats />} />
         <Route path="/vma" element={<VMAPage />} />
         <Route path="/fc-zones" element={<FCZonesPage />} />
+        <Route path="/parametres" element={<ParametresPage />} />
       </Routes>
       <BottomNav />
     </>
