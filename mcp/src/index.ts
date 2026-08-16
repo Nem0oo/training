@@ -147,6 +147,22 @@ function buildMcpServer() {
 const app = express()
 app.use(express.json())
 
+// Claude.ai connects to remote MCP servers directly from the browser, so
+// without CORS headers the request never reaches app code — the browser
+// blocks it and Claude just reports "Couldn't reach" the server.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.header('Vary', 'Origin')
+  res.header('Access-Control-Allow-Origin', req.headers.origin ?? '*')
+  res.header('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS')
+  res.header('Access-Control-Allow-Headers', 'Content-Type, X-Api-Key, Authorization, Mcp-Session-Id, mcp-protocol-version, Last-Event-ID')
+  res.header('Access-Control-Expose-Headers', 'Mcp-Session-Id')
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204)
+    return
+  }
+  next()
+})
+
 function requireApiKey(req: Request, res: Response, next: NextFunction) {
   const fromHeader = req.headers['x-api-key']
   const fromBearer = req.headers.authorization?.startsWith('Bearer ')
