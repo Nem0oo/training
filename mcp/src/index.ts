@@ -213,10 +213,18 @@ app.post(['/sse', '/sse/:api_key'], requireApiKey, async (req: Request, res: Res
 
   let transport: StreamableHTTPServerTransport
 
-  if (sessionId && httpSessions.has(sessionId)) {
-    transport = httpSessions.get(sessionId)!
+  if (sessionId) {
+    const existing = httpSessions.get(sessionId)
+    if (!existing) {
+      // Session ID from a previous server instance (e.g. redeploy wiped
+      // in-memory sessions). Tell the client to reinitialize instead of
+      // silently handing this request to a fresh, uninitialized transport,
+      // which just rejects it with a confusing "Server not initialized" 400.
+      res.status(404).json({ jsonrpc: '2.0', error: { code: -32001, message: 'Session expirée — réinitialisation nécessaire' }, id: null })
+      return
+    }
+    transport = existing
   } else {
-    // New session or stale session ID (server restarted) — create a fresh one
     transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (sid) => { httpSessions.set(sid, transport) },
