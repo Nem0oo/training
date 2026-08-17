@@ -6,6 +6,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  isInitializeRequest,
 } from '@modelcontextprotocol/sdk/types.js'
 import {
   listSeances,
@@ -236,7 +237,7 @@ app.post(['/sse', '/sse/:api_key'], requireApiKey, async (req: Request, res: Res
       return
     }
     transport = existing
-  } else {
+  } else if (isInitializeRequest(req.body)) {
     transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (sid) => { httpSessions.set(sid, transport) },
@@ -245,6 +246,12 @@ app.post(['/sse', '/sse/:api_key'], requireApiKey, async (req: Request, res: Res
       if (transport.sessionId) httpSessions.delete(transport.sessionId)
     }
     await buildMcpServer().connect(transport)
+  } else {
+    // No session AND not an initialize request — matches the MCP SDK's own
+    // reference Express pattern: reject up front instead of spinning up a
+    // transport just to have the SDK reject the same request internally.
+    res.status(400).json({ jsonrpc: '2.0', error: { code: -32000, message: 'Bad Request: No valid session ID provided' }, id: null })
+    return
   }
 
   await transport.handleRequest(req, res, req.body)
