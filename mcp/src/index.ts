@@ -126,6 +126,10 @@ await server.start({
   transportType: 'httpStream',
   httpStream: {
     port: PORT,
+    // Without this, the server binds to the loopback address only (observed
+    // listening on ::1), unreachable from other containers on the Docker
+    // network — nginx would get connection refused / 502.
+    host: '0.0.0.0',
     endpoint: '/mcp',
     cors: true,
     // No cross-request state to preserve (auth is re-checked per request,
