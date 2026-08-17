@@ -164,18 +164,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next()
 })
 
-// TEMPORARY diagnostic logging — remove once the Claude connector handshake is understood.
-app.use((req: Request, _res: Response, next: NextFunction) => {
-  console.log('[req]', req.method, req.path, JSON.stringify({
-    sessionId: req.headers['mcp-session-id'],
-    accept: req.headers['accept'],
-    contentType: req.headers['content-type'],
-    ua: req.headers['user-agent'],
-    body: req.body,
-  }))
-  next()
-})
-
 function requireApiKey(req: Request, res: Response, next: NextFunction) {
   const fromHeader = req.headers['x-api-key']
   const fromBearer = req.headers.authorization?.startsWith('Bearer ')
