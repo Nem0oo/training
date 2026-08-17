@@ -224,6 +224,17 @@ app.get(['/sse', '/sse/:api_key'], requireApiKey, async (req: Request, res: Resp
 app.post(['/sse', '/sse/:api_key'], requireApiKey, async (req: Request, res: Response) => {
   const sessionId = req.headers['mcp-session-id'] as string | undefined
 
+  // Claude.ai's client probes an unreleased "server/discover" extension
+  // (MCP Apps/UI capability negotiation) before the standard "initialize".
+  // We don't support it — reply with a proper JSON-RPC "Method not found"
+  // so the client treats it as an optional, declined extension and falls
+  // back to plain initialize, instead of a transport-level 400 that reads
+  // as "this server is broken".
+  if (!sessionId && req.body?.method && req.body.method !== 'initialize') {
+    res.status(200).json({ jsonrpc: '2.0', error: { code: -32601, message: `Method not found: ${req.body.method}` }, id: req.body.id ?? null })
+    return
+  }
+
   let transport: StreamableHTTPServerTransport
 
   if (sessionId) {
