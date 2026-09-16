@@ -74,6 +74,13 @@ try {
   // create_seance/update_seance, uniquement par le calcul déclenché en 2.2/2.3.
   db.exec(`ALTER TABLE seances ADD COLUMN effet_reel_brut TEXT`)
 } catch { /* column already exists */ }
+try {
+  // Résultat de conformité (2.2), calculé par le moteur mais jusqu'ici jamais
+  // persisté (seul facteur_execution en dérivait) — ajouté pour l'affichage
+  // UI (point 6 de la spec UI complémentaire), même statut en écriture que
+  // effet_reel_brut : jamais accepté via create_seance/update_seance.
+  db.exec(`ALTER TABLE seances ADD COLUMN conformite TEXT`)
+} catch { /* column already exists */ }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS power_zones (

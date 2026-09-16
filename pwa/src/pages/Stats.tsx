@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
-import type { Stats as StatsType, SeanceType } from '../types'
+import type { Stats as StatsType, SeanceType, RadarCumule } from '../types'
+import { RadarChart } from '../components/RadarChart'
+import { toChartData } from '../lib/axes'
 
 const typeLabels: Record<SeanceType, string> = {
   endurance:    'Endurance',
@@ -23,10 +25,20 @@ const typeColors: Record<SeanceType, string> = {
 export function Stats() {
   const [stats, setStats] = useState<StatsType | null>(null)
   const [weeks, setWeeks] = useState(4)
+  const [radarCumule, setRadarCumule] = useState<RadarCumule | null>(null)
+  const [radarCumuleLoaded, setRadarCumuleLoaded] = useState(false)
 
   useEffect(() => {
     api.stats.get(weeks).then(setStats).catch(console.error)
   }, [weeks])
+
+  useEffect(() => {
+    // 3.2 — 404 tant qu'aucune séance n'a été scorée, état normal, pas une erreur.
+    api.radarCumule.get()
+      .then(setRadarCumule)
+      .catch(() => setRadarCumule(null))
+      .finally(() => setRadarCumuleLoaded(true))
+  }, [])
 
   const termineeCount = stats?.par_etat?.terminee ?? 0
   const planifieeCount = stats?.par_etat?.planifiee ?? 0
@@ -48,6 +60,27 @@ export function Stats() {
           </select>
         </div>
       </header>
+
+      {radarCumuleLoaded && (
+        <div className="max-w-lg mx-auto px-4 pt-4">
+          <div className="bg-slate-800 rounded-xl p-4">
+            <h2 className="text-sm font-semibold text-slate-300 mb-1">Radar cumulé — état de forme</h2>
+            <p className="text-xs text-slate-500 mb-2">
+              Moyenne mobile sur les séances scorées. Échelle propre à cet indicateur — ne se compare pas au radar d'une séance individuelle.
+            </p>
+            {radarCumule ? (
+              <div className="flex justify-center py-2">
+                <RadarChart
+                  data={toChartData(radarCumule.axes)}
+                  maxValue={Math.max(...toChartData(radarCumule.axes).map(d => d.value), 0.01)}
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500 py-4 text-center">Aucune séance scorée pour l'instant.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {stats && (
         <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
