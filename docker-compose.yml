@@ -6,12 +6,16 @@ services:
     restart: unless-stopped
     volumes:
       - ./data:/data
+      - ./config/scoring.json:/config/scoring.json:ro
     environment:
       - PORT=3001
       - DATA_DIR=/data
       - API_PASSWORD=${API_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - SCORING_CONFIG_PATH=/config/scoring.json
+      - GARMIN_API_KEY=${GARMIN_API_KEY}
+      - GARMIN_BASE_URL=${GARMIN_BASE_URL}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
       interval: 10s

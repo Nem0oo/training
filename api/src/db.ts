@@ -85,6 +85,20 @@ db.exec(`
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
+
+  -- État persistant du radar cumulé (2.4) — un seul athlète, une seule ligne
+  -- (id fixe 'singleton'). Mis à jour par EMA à chaque séance scorée.
+  CREATE TABLE IF NOT EXISTS radar_cumule (
+    id TEXT PRIMARY KEY,
+    endurance_fondamentale REAL NOT NULL,
+    seuil_lactique REAL NOT NULL,
+    vo2max REAL NOT NULL,
+    vma REAL NOT NULL,
+    resistance_musculaire REAL NOT NULL,
+    economie_course REAL NOT NULL,
+    resilience_thermique REAL NOT NULL,
+    updated_at TEXT NOT NULL
+  );
 `)
 
 export default db
