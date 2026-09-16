@@ -6,6 +6,7 @@ import statsRouter from './routes/stats.js'
 import vmaRouter from './routes/vma.js'
 import fcZonesRouter from './routes/fc_zones.js'
 import powerZonesRouter from './routes/power_zones.js'
+import radarCumuleRouter from './routes/radar_cumule.js'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
@@ -65,6 +66,7 @@ app.use('/api/stats', requireAuth, statsRouter)
 app.use('/api/vma', requireAuth, vmaRouter)
 app.use('/api/fc-zones', requireAuth, fcZonesRouter)
 app.use('/api/power-zones', requireAuth, powerZonesRouter)
+app.use('/api/radar-cumule', requireAuth, radarCumuleRouter)
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err)

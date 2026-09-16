@@ -1,0 +1,119 @@
+{
+  "_comment": "Config du moteur de scoring séances. Toutes les valeurs ici sont des points de départ arbitraires (sauf mention contraire), à recalibrer par l'athlète — voir README section 'Scoring séances'. Fichier monté en volume dans le conteneur api (SCORING_CONFIG_PATH) : éditable sans rebuild d'image, un `docker compose restart api` suffit à appliquer un changement.",
+
+  "min_interval_seconds": 60,
+
+  "poids_intensite": {
+    "Z1": 1.0,
+    "Z2": 1.5,
+    "Z3": 2.5,
+    "Z4": 4.0,
+    "Z5": 6.0
+  },
+
+  "poids_renfo": 2.0,
+
+  "repartition": {
+    "Z1": {
+      "endurance_fondamentale": 60,
+      "seuil_lactique": 0,
+      "vo2max": 0,
+      "vma": 0,
+      "economie_course": 20,
+      "resilience_thermique": 20
+    },
+    "Z2": {
+      "_comment": "endurance_fondamentale = 80 - resilience_thermique, calculée dynamiquement à partir de la température moyenne du segment (voir zone2Thermal ci-dessous) — pas de valeur fixe ici.",
+      "seuil_lactique": 0,
+      "vo2max": 0,
+      "vma": 0,
+      "economie_course": 20
+    },
+    "Z3": {
+      "endurance_fondamentale": 20,
+      "seuil_lactique": 40,
+      "vo2max": 10,
+      "vma": 0,
+      "economie_course": 15,
+      "resilience_thermique": 15
+    },
+    "Z4": {
+      "continu": {
+        "endurance_fondamentale": 5,
+        "seuil_lactique": 60,
+        "vo2max": 25,
+        "vma": 0,
+        "economie_course": 5,
+        "resilience_thermique": 5
+      },
+      "repetition_courte": {
+        "endurance_fondamentale": 5,
+        "seuil_lactique": 35,
+        "vo2max": 15,
+        "vma": 35,
+        "economie_course": 5,
+        "resilience_thermique": 5
+      }
+    },
+    "Z5": {
+      "continu": {
+        "endurance_fondamentale": 0,
+        "seuil_lactique": 10,
+        "vo2max": 75,
+        "vma": 10,
+        "economie_course": 5,
+        "resilience_thermique": 0
+      },
+      "repetition_courte": {
+        "endurance_fondamentale": 0,
+        "seuil_lactique": 10,
+        "vo2max": 15,
+        "vma": 70,
+        "economie_course": 5,
+        "resilience_thermique": 0
+      }
+    }
+  },
+
+  "zone2_resilience_thermique": {
+    "_comment": "resilience_thermique (Z2 uniquement) = interpolation linéaire entre min (à temp_min_c) et max (à temp_max_c et au-delà), bornée [min, max]. endurance_fondamentale = 80 - resilience_thermique.",
+    "min": 15,
+    "max": 25,
+    "temp_min_c": 15,
+    "temp_max_c": 35
+  },
+
+  "resistance_musculaire_ramp": {
+    "_comment": "part de budget (fraction 0-1) déviée vers resistance_musculaire, en fonction de la durée cumulée d'effort continu (minutes) écoulée AVANT le segment courant. Interpolation linéaire entre points, plafonné au dernier point au-delà. Calibration provisoire (voir spec : mesurée sur un effort inhabituellement intense, probablement sous-estimée pour de l'EF réelle).",
+    "points": [
+      { "minutes": 0,   "fraction": 0 },
+      { "minutes": 60,  "fraction": 0 },
+      { "minutes": 120, "fraction": 0.2 },
+      { "minutes": 150, "fraction": 0.35 },
+      { "minutes": 180, "fraction": 0.55 },
+      { "minutes": 240, "fraction": 0.8 },
+      { "minutes": 300, "fraction": 0.95 }
+    ]
+  },
+
+  "conformite_statuts": {
+    "_comment": "seuils de % conformité (réalisé/prescrit) par zone déterminant le statut affiché dans le compte-rendu (2.2). Arbitraire, à ajuster.",
+    "ok_min_pct": 85,
+    "ok_max_pct": 115,
+    "warn_min_pct": 70,
+    "warn_max_pct": 130
+  },
+
+  "facteur_execution": {
+    "_comment": "facteur_execution = min(conformite_globale, plafond) ; si conformite_intensite < seuil_intensite_pct OU conformite_duree < seuil_duree_pct, ce facteur est en plus multiplié par reduction.",
+    "plafond": 1.0,
+    "seuil_intensite_pct": 70,
+    "seuil_duree_pct": 80,
+    "reduction": 0.4
+  },
+
+  "coeff_plafond": 8,
+  "plafond_fenetre_seances": 10,
+
+  "constante_temps_ema_jours": 42
+}

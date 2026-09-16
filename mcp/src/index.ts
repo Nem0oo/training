@@ -9,6 +9,8 @@ import {
   getStats,
   listFcZones,
   listPowerZones,
+  getSeanceRadar,
+  getRadarCumule,
 } from './tools.js'
 
 const PORT = Number(process.env.PORT ?? 3002)
@@ -142,6 +144,19 @@ server.addTool({
   name: 'list_power_zones',
   description: "Liste les zones de puissance (Z1-Z5) utilisées par le moteur de scoring pour segmenter les séances réalisées (lecture seule, maintenues manuellement, indépendantes du profil Garmin)",
   execute: async () => JSON.stringify(run(() => listPowerZones()), null, 2),
+})
+
+server.addTool({
+  name: 'get_seance_radar',
+  description: "Radar PAR SÉANCE : répartition de l'impact de cette séance entre les 7 axes, en proportions internes (normalisées par la somme des 7 valeurs de CETTE séance). Échelle différente du radar cumulé (get_radar_cumule) — ne jamais comparer les deux directement.",
+  parameters: z.object({ id: z.string() }),
+  execute: async (args) => JSON.stringify(run(() => getSeanceRadar(args.id)), null, 2),
+})
+
+server.addTool({
+  name: 'get_radar_cumule',
+  description: "Radar CUMULÉ : état de forme global sur les 7 axes (moyenne mobile exponentielle mise à jour à chaque séance scorée). Sur sa propre échelle — ne jamais comparer directement aux proportions de get_seance_radar.",
+  execute: async () => JSON.stringify(run(() => getRadarCumule()), null, 2),
 })
 
 // FastMCP always also mounts a fixed, separate legacy-SSE compatibility

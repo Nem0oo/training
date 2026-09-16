@@ -94,3 +94,14 @@ export function listFcZones() {
 export function listPowerZones() {
   return apiRequest('/api/power-zones')
 }
+
+// 3.1 — radar par séance (proportions internes, échelle propre à la séance).
+export function getSeanceRadar(id: string) {
+  return apiRequest(`/api/seances/${id}/radar`)
+}
+
+// 3.2 — radar cumulé (état de forme global, échelle EMA — jamais la même
+// échelle que le radar par séance, ne pas les confondre côté appelant).
+export function getRadarCumule() {
+  return apiRequest('/api/radar-cumule')
+}
