@@ -1,5 +1,30 @@
-import { v4 as uuidv4 } from 'uuid'
-import db from './db.js'
+// Le serveur MCP n'a plus d'accès direct à la base SQLite : il proxie tous
+// les appels vers le service `api`, qui reste l'unique propriétaire de
+// l'écriture (et, à terme, du déclenchement du moteur de scoring — voir
+// étape 4 de la spec scoring séances). Ça garantit que MCP et UI passent
+// par exactement le même code serveur.
+const API_BASE = process.env.API_INTERNAL_URL ?? 'http://api:3001'
+const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY
+
+if (!INTERNAL_API_KEY) {
+  console.error('INTERNAL_API_KEY environment variable is required')
+  process.exit(1)
+}
+
+async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Key': INTERNAL_API_KEY!,
+      ...options?.headers,
+    },
+  })
+  if (res.status === 204) return undefined as T
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json.error ?? `API error: HTTP ${res.status}`)
+  return json.data as T
+}
 
 export function listSeances(params: {
   from?: string
@@ -8,24 +33,18 @@ export function listSeances(params: {
   etat?: string
   limit?: number
 }) {
-  let query = 'SELECT * FROM seances WHERE 1=1'
-  const args: unknown[] = []
-
-  if (params.from) { query += ' AND date >= ?'; args.push(params.from) }
-  if (params.to)   { query += ' AND date <= ?'; args.push(params.to) }
-  if (params.type) { query += ' AND type = ?';  args.push(params.type) }
-  if (params.etat) { query += ' AND etat = ?';  args.push(params.etat) }
-
-  query += ' ORDER BY date ASC LIMIT ?'
-  args.push(params.limit ?? 50)
-
-  return db.prepare(query).all(...args)
+  const qs = new URLSearchParams()
+  if (params.from) qs.set('from', params.from)
+  if (params.to) qs.set('to', params.to)
+  if (params.type) qs.set('type', params.type)
+  if (params.etat) qs.set('etat', params.etat)
+  if (params.limit) qs.set('limit', String(params.limit))
+  const query = qs.toString()
+  return apiRequest(`/api/seances${query ? '?' + query : ''}`)
 }
 
 export function getSeance(id: string) {
-  const row = db.prepare('SELECT * FROM seances WHERE id = ?').get(id)
-  if (!row) throw new Error(`Séance ${id} introuvable`)
-  return row
+  return apiRequest(`/api/seances/${id}`)
 }
 
 export function createSeance(data: {
@@ -35,14 +54,13 @@ export function createSeance(data: {
   type: string
   etat?: string
   commentaire_coach?: string
+  condition_signalee?: boolean
+  garmin_activity_id?: string
+  categorie?: string
+  nature_effort?: string
+  blocs_prescrits?: unknown
 }) {
-  const now = new Date().toISOString()
-  const id = uuidv4()
-  db.prepare(`
-    INSERT INTO seances (id, nom, date, contenu, type, etat, commentaire_coach, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, data.nom, data.date, data.contenu ?? '', data.type, data.etat ?? 'planifiee', data.commentaire_coach ?? '', now, now)
-  return getSeance(id)
+  return apiRequest('/api/seances', { method: 'POST', body: JSON.stringify(data) })
 }
 
 export function updateSeance(id: string, data: {
@@ -52,61 +70,27 @@ export function updateSeance(id: string, data: {
   type?: string
   etat?: string
   commentaire_coach?: string
+  condition_signalee?: boolean
+  garmin_activity_id?: string
+  categorie?: string
+  nature_effort?: string
+  blocs_prescrits?: unknown
 }) {
-  getSeance(id) // throws if not found
-  const fields = Object.entries(data)
-    .filter(([, v]) => v !== undefined)
-    .map(([k]) => `${k} = ?`)
-  if (fields.length === 0) return getSeance(id)
-
-  const values = Object.entries(data)
-    .filter(([, v]) => v !== undefined)
-    .map(([, v]) => v)
-
-  db.prepare(`
-    UPDATE seances SET ${fields.join(', ')}, updated_at = ? WHERE id = ?
-  `).run(...values, new Date().toISOString(), id)
-
-  return getSeance(id)
+  return apiRequest(`/api/seances/${id}`, { method: 'PUT', body: JSON.stringify(data) })
 }
 
 export function deleteSeance(id: string) {
-  getSeance(id) // throws if not found
-  db.prepare('DELETE FROM seances WHERE id = ?').run(id)
-  return { success: true }
+  return apiRequest(`/api/seances/${id}`, { method: 'DELETE' }).then(() => ({ success: true }))
 }
 
-export function getStats(weeks = 4) {
-  const since = new Date()
-  since.setDate(since.getDate() - weeks * 7)
-  const sinceISO = since.toISOString().slice(0, 10)
-
-  const startOfWeek = new Date()
-  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1)
-  const weekISO = startOfWeek.toISOString().slice(0, 10)
-
-  const total = (db.prepare('SELECT COUNT(*) as n FROM seances').get() as { n: number }).n
-
-  const parType = db.prepare(
-    'SELECT type, COUNT(*) as n FROM seances WHERE date >= ? GROUP BY type'
-  ).all(sinceISO) as { type: string; n: number }[]
-
-  const parEtat = db.prepare(
-    'SELECT etat, COUNT(*) as n FROM seances WHERE date >= ? GROUP BY etat'
-  ).all(sinceISO) as { etat: string; n: number }[]
-
-  const semaineCount = (db.prepare(
-    'SELECT COUNT(*) as n FROM seances WHERE date >= ?'
-  ).get(weekISO) as { n: number }).n
-
-  return {
-    total_seances: total,
-    par_type: Object.fromEntries(parType.map(r => [r.type, r.n])),
-    par_etat: Object.fromEntries(parEtat.map(r => [r.etat, r.n])),
-    seances_cette_semaine: semaineCount,
-  }
+export function getStats(weeks?: number) {
+  return apiRequest(`/api/stats${weeks ? `?weeks=${weeks}` : ''}`)
 }
 
 export function listFcZones() {
-  return db.prepare('SELECT * FROM fc_zones ORDER BY ordre ASC, fc_min ASC').all()
+  return apiRequest('/api/fc-zones')
+}
+
+export function listPowerZones() {
+  return apiRequest('/api/power-zones')
 }

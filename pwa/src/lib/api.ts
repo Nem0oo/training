@@ -1,4 +1,4 @@
-import type { Seance, Stats, VMA, FCZone } from '../types'
+import type { Seance, Stats, VMA, FCZone, PowerZone } from '../types'
 
 const BASE = '/api'
 
@@ -56,5 +56,13 @@ export const api = {
     update: (id: string, data: Partial<FCZone>) =>
       req<FCZone>(`/fc-zones/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => req<void>(`/fc-zones/${id}`, { method: 'DELETE' }),
+  },
+  powerZones: {
+    list:   ()                                                              => req<PowerZone[]>('/power-zones'),
+    create: (data: Pick<PowerZone, 'zone' | 'nom' | 'power_min' | 'power_max'>) =>
+      req<PowerZone>('/power-zones', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<PowerZone>) =>
+      req<PowerZone>(`/power-zones/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => req<void>(`/power-zones/${id}`, { method: 'DELETE' }),
   },
 }

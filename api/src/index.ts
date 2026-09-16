@@ -5,14 +5,22 @@ import seancesRouter from './routes/seances.js'
 import statsRouter from './routes/stats.js'
 import vmaRouter from './routes/vma.js'
 import fcZonesRouter from './routes/fc_zones.js'
+import powerZonesRouter from './routes/power_zones.js'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
 const API_PASSWORD = process.env.API_PASSWORD
 const JWT_SECRET = process.env.JWT_SECRET
+// Secret partagé avec le service training-mcp, pour les appels serveur-à-serveur
+// (mcp proxie create_seance/update_seance vers l'API — voir mcp/src/apiClient.ts).
+const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY
 
 if (!API_PASSWORD || !JWT_SECRET) {
   console.error('API_PASSWORD and JWT_SECRET environment variables are required')
+  process.exit(1)
+}
+if (!INTERNAL_API_KEY) {
+  console.error('INTERNAL_API_KEY environment variable is required')
   process.exit(1)
 }
 
@@ -32,6 +40,13 @@ app.post('/api/auth/login', (req, res) => {
 })
 
 function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  // Appel serveur-à-serveur depuis training-mcp (pas de session utilisateur).
+  const internalKey = req.headers['x-internal-key']
+  if (internalKey && internalKey === INTERNAL_API_KEY) {
+    next()
+    return
+  }
+
   const auth = req.headers.authorization
   if (!auth?.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Non authentifié' })
@@ -49,6 +64,7 @@ app.use('/api/seances', requireAuth, seancesRouter)
 app.use('/api/stats', requireAuth, statsRouter)
 app.use('/api/vma', requireAuth, vmaRouter)
 app.use('/api/fc-zones', requireAuth, fcZonesRouter)
+app.use('/api/power-zones', requireAuth, powerZonesRouter)
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err)
