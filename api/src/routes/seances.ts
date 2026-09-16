@@ -4,6 +4,34 @@ import db from '../db.js'
 
 const router = Router()
 
+const CATEGORIES = ['cardio', 'renforcement', 'competition', 'autre']
+const NATURES_EFFORT = ['continu', 'repetition_courte', 'non_applicable']
+const ZONES = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5']
+
+function validateBlocsPrescrits(blocs: unknown): string | null {
+  if (blocs === undefined || blocs === null) return null
+  if (!Array.isArray(blocs)) return 'blocs_prescrits doit être un tableau'
+  for (const bloc of blocs) {
+    if (typeof bloc !== 'object' || bloc === null) return 'chaque bloc_prescrit doit être un objet'
+    const b = bloc as Record<string, unknown>
+    if (!ZONES.includes(b.zone_cible as string)) return `zone_cible invalide : ${b.zone_cible}`
+    if (typeof b.duree_min !== 'number' || b.duree_min <= 0) return 'duree_min doit être un nombre > 0'
+    if (b.repetitions !== undefined && typeof b.repetitions !== 'number') return 'repetitions doit être un nombre'
+  }
+  return null
+}
+
+// Ligne SQLite -> objet API : parse les colonnes JSON stockées en TEXT et
+// convertit le booléen SQLite (0/1) en booléen JS.
+function deserialize(row: Record<string, unknown>) {
+  return {
+    ...row,
+    condition_signalee: Boolean(row.condition_signalee),
+    blocs_prescrits: row.blocs_prescrits ? JSON.parse(row.blocs_prescrits as string) : null,
+    effet_reel_brut: row.effet_reel_brut ? JSON.parse(row.effet_reel_brut as string) : null,
+  }
+}
+
 router.get('/', (req, res) => {
   let query = 'SELECT * FROM seances WHERE 1=1'
   const args: unknown[] = []
@@ -16,46 +44,94 @@ router.get('/', (req, res) => {
   query += ' ORDER BY date ASC LIMIT ?'
   args.push(Number(limit) || 50)
 
-  res.json({ data: db.prepare(query).all(...args) })
+  const rows = db.prepare(query).all(...args) as Record<string, unknown>[]
+  res.json({ data: rows.map(deserialize) })
 })
 
 router.post('/', (req, res) => {
-  const { nom, date, contenu, type, etat, commentaire_coach } = req.body
+  const {
+    nom, date, contenu, type, etat, commentaire_coach,
+    condition_signalee, garmin_activity_id, categorie, nature_effort, blocs_prescrits,
+  } = req.body
   if (!nom || !date || !type) {
     res.status(400).json({ error: 'nom, date et type sont requis' })
     return
   }
+  if (categorie !== undefined && !CATEGORIES.includes(categorie)) {
+    res.status(400).json({ error: `categorie invalide : ${categorie}` })
+    return
+  }
+  if (nature_effort !== undefined && !NATURES_EFFORT.includes(nature_effort)) {
+    res.status(400).json({ error: `nature_effort invalide : ${nature_effort}` })
+    return
+  }
+  const blocsError = validateBlocsPrescrits(blocs_prescrits)
+  if (blocsError) { res.status(400).json({ error: blocsError }); return }
+
   const now = new Date().toISOString()
   const id = uuidv4()
   db.prepare(`
-    INSERT INTO seances (id, nom, date, contenu, type, etat, commentaire_coach, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, nom, date, contenu ?? '', type, etat ?? 'planifiee', commentaire_coach ?? '', now, now)
+    INSERT INTO seances (
+      id, nom, date, contenu, type, etat, commentaire_coach,
+      condition_signalee, garmin_activity_id, categorie, nature_effort, blocs_prescrits,
+      created_at, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id, nom, date, contenu ?? '', type, etat ?? 'planifiee', commentaire_coach ?? '',
+    condition_signalee ? 1 : 0,
+    garmin_activity_id ?? null,
+    categorie ?? 'autre',
+    nature_effort ?? 'non_applicable',
+    blocs_prescrits ? JSON.stringify(blocs_prescrits) : null,
+    now, now,
+  )
 
-  res.status(201).json({ data: db.prepare('SELECT * FROM seances WHERE id = ?').get(id) })
+  res.status(201).json({ data: deserialize(db.prepare('SELECT * FROM seances WHERE id = ?').get(id) as Record<string, unknown>) })
 })
 
 router.get('/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM seances WHERE id = ?').get(req.params.id)
+  const row = db.prepare('SELECT * FROM seances WHERE id = ?').get(req.params.id) as Record<string, unknown> | undefined
   if (!row) { res.status(404).json({ error: 'Séance introuvable' }); return }
-  res.json({ data: row })
+  res.json({ data: deserialize(row) })
 })
 
 router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM seances WHERE id = ?').get(req.params.id)
   if (!existing) { res.status(404).json({ error: 'Séance introuvable' }); return }
 
-  const allowed = ['nom', 'date', 'contenu', 'type', 'etat', 'commentaire_coach']
-  const updates = Object.entries(req.body)
-    .filter(([k]) => allowed.includes(k))
-  if (updates.length === 0) { res.json({ data: existing }); return }
+  if (req.body.categorie !== undefined && !CATEGORIES.includes(req.body.categorie)) {
+    res.status(400).json({ error: `categorie invalide : ${req.body.categorie}` })
+    return
+  }
+  if (req.body.nature_effort !== undefined && !NATURES_EFFORT.includes(req.body.nature_effort)) {
+    res.status(400).json({ error: `nature_effort invalide : ${req.body.nature_effort}` })
+    return
+  }
+  if (req.body.blocs_prescrits !== undefined) {
+    const blocsError = validateBlocsPrescrits(req.body.blocs_prescrits)
+    if (blocsError) { res.status(400).json({ error: blocsError }); return }
+  }
+
+  // effet_reel_brut est une sortie du moteur de scoring : jamais acceptée en
+  // écriture via create_seance/update_seance (MCP ou UI).
+  const allowed = [
+    'nom', 'date', 'contenu', 'type', 'etat', 'commentaire_coach',
+    'condition_signalee', 'garmin_activity_id', 'categorie', 'nature_effort', 'blocs_prescrits',
+  ]
+  const updates = Object.entries(req.body).filter(([k]) => allowed.includes(k))
+  if (updates.length === 0) { res.json({ data: deserialize(existing as Record<string, unknown>) }); return }
 
   const fields = updates.map(([k]) => `${k} = ?`).join(', ')
-  const values = updates.map(([, v]) => v)
+  const values = updates.map(([k, v]) => {
+    if (k === 'condition_signalee') return v ? 1 : 0
+    if (k === 'blocs_prescrits') return v ? JSON.stringify(v) : null
+    return v
+  })
   db.prepare(`UPDATE seances SET ${fields}, updated_at = ? WHERE id = ?`)
     .run(...values, new Date().toISOString(), req.params.id)
 
-  res.json({ data: db.prepare('SELECT * FROM seances WHERE id = ?').get(req.params.id) })
+  res.json({ data: deserialize(db.prepare('SELECT * FROM seances WHERE id = ?').get(req.params.id) as Record<string, unknown>) })
 })
 
 router.delete('/:id', (req, res) => {

@@ -46,6 +46,10 @@ All endpoints (except `/api/health` and `/api/auth/login`) require an `Authoriza
 | `POST`   | `/api/fc-zones` | Create a heart-rate zone |
 | `PUT`    | `/api/fc-zones/:id` | Update a heart-rate zone |
 | `DELETE` | `/api/fc-zones/:id` | Delete a heart-rate zone |
+| `GET`    | `/api/power-zones` | List power zones (Z1-Z5, used by the scoring engine) |
+| `POST`   | `/api/power-zones` | Create a power zone |
+| `PUT`    | `/api/power-zones/:id` | Update a power zone |
+| `DELETE` | `/api/power-zones/:id` | Delete a power zone |
 
 ## MCP tools
 
@@ -60,13 +64,14 @@ The MCP server (`coach-running`) exposes the following tools to an AI agent, aut
 | `delete_seance` | Delete a session |
 | `get_stats` | Training stats over N weeks |
 | `list_fc_zones` | List heart-rate zones (read-only) |
+| `list_power_zones` | List power zones Z1-Z5 used by the scoring engine (read-only) |
 
 ## Run locally
 
 ```bash
 git clone <repo>
 cd training
-cp .env.example .env   # fill in API_PASSWORD, JWT_SECRET, MCP_API_KEY
+cp .env.example .env   # fill in API_PASSWORD, JWT_SECRET, MCP_API_KEY, INTERNAL_API_KEY
 docker compose build
 docker compose up
 ```
@@ -82,6 +87,7 @@ docker compose up
 | `API_PASSWORD` | Password to log into the API/PWA |
 | `JWT_SECRET` | Secret used to sign JWT tokens |
 | `MCP_API_KEY` | API key to authenticate calls to the MCP server |
+| `INTERNAL_API_KEY` | Shared secret for server-to-server calls: the MCP server proxies `create_seance`/`update_seance`/... to the API instead of writing to SQLite directly, so both channels run the exact same server code |
 | `PROD_URL` | Production domain, used in `mcp.json` to configure the MCP client |
 
 ## Required CI secrets
@@ -93,6 +99,12 @@ docker compose up
 
 ## Notes
 
-- Data is persisted in a single SQLite file (`training.db`) shared by the API and the MCP server via the `./data` volume.
+- Data is persisted in a single SQLite file (`training.db`), owned exclusively by the API service (`./data` volume). The MCP server has no filesystem access to it — every MCP tool that reads or writes a session calls the API internally (`X-Internal-Key` header, see `INTERNAL_API_KEY` above) so both channels run identical server code.
 - The MCP server supports both the legacy SSE transport (`GET /sse`) and the Streamable HTTP transport (`POST /sse`, used by Claude.ai among others).
 - `import_seances.py` bulk-imports a text training plan (`seances.txt`) into the database.
+
+## Scoring séances (in progress)
+
+The `seances` table now carries the fields needed for a deterministic session-scoring engine (see the "Course 2026-2027" spec): `condition_signalee`, `garmin_activity_id`, `categorie`, `nature_effort`, `blocs_prescrits` (prescribed, JSON), `effet_reel_brut` (engine output, JSON, read-only from the API/MCP surface). A `power_zones` table (Z1-Z5, managed like `fc_zones`) holds the power thresholds the engine will use to segment realized effort — it drives the scoring engine only, decoupled on purpose from any Garmin-side zone profile.
+
+This is schema + plumbing only. The engine itself (zone segmentation, compliance scoring, the 7-axis effect model, the two radars, the Garmin-activity fetch and its trigger) is not implemented yet — `effet_reel_brut` will stay empty until it lands. Known modeling limitations will be documented here once the engine ships.

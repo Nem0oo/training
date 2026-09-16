@@ -8,6 +8,7 @@ import {
   deleteSeance,
   getStats,
   listFcZones,
+  listPowerZones,
 } from './tools.js'
 
 const PORT = Number(process.env.PORT ?? 3002)
@@ -20,6 +21,14 @@ if (!API_KEY) {
 
 const seanceType = z.enum(['endurance', 'fractionne', 'cotes', 'recuperation', 'competition', 'autre'])
 const seanceEtat = z.enum(['planifiee', 'en_cours', 'terminee', 'annulee'])
+const seanceCategorie = z.enum(['cardio', 'renforcement', 'competition', 'autre'])
+const natureEffort = z.enum(['continu', 'repetition_courte', 'non_applicable'])
+const zoneCible = z.enum(['Z1', 'Z2', 'Z3', 'Z4', 'Z5'])
+const blocPrescrit = z.object({
+  zone_cible: zoneCible,
+  duree_min: z.number().positive(),
+  repetitions: z.number().positive().describe('Informatif seulement, non utilisé par le moteur de conformité').optional(),
+})
 
 function run<T>(fn: () => T): T {
   try {
@@ -74,10 +83,15 @@ server.addTool({
   parameters: z.object({
     nom: z.string(),
     date: z.string().describe('YYYY-MM-DD'),
-    contenu: z.string().describe('Description détaillée (allures, séries…)').optional(),
-    type: seanceType,
+    contenu: z.string().describe('Description détaillée en texte libre (allures, séries…)').optional(),
+    type: seanceType.describe('Champ historique, conservé en lecture seule pour le passé — ne pilote plus le moteur de scoring, utiliser categorie'),
     etat: seanceEtat.optional(),
     commentaire_coach: z.string().describe('Commentaire du coach sur la séance').optional(),
+    condition_signalee: z.boolean().describe("Séance à exclure des calculs de scoring (blessure, malaise, contexte non représentatif...). Distinct du commentaire_coach.").optional(),
+    garmin_activity_id: z.string().describe("ID de l'activité Garmin liée (déclenchera le moteur de scoring une fois branché)").optional(),
+    categorie: seanceCategorie.describe('Catégorie utilisée par le moteur de scoring').optional(),
+    nature_effort: natureEffort.describe("Requis pour distinguer les deux répartitions Z4/Z5 (continu vs répétitions courtes) sur les séances cardio/competition").optional(),
+    blocs_prescrits: z.array(blocPrescrit).describe('Séance prescrite, agrégée par zone pour le calcul de conformité (2.2)').optional(),
   }),
   execute: async (args) => JSON.stringify(run(() => createSeance(args)), null, 2),
 })
@@ -93,6 +107,11 @@ server.addTool({
     type: seanceType.optional(),
     etat: seanceEtat.optional(),
     commentaire_coach: z.string().describe('Commentaire du coach sur la séance').optional(),
+    condition_signalee: z.boolean().describe("Séance à exclure des calculs de scoring. Distinct du commentaire_coach.").optional(),
+    garmin_activity_id: z.string().describe("ID de l'activité Garmin liée (déclenchera le moteur de scoring une fois branché)").optional(),
+    categorie: seanceCategorie.optional(),
+    nature_effort: natureEffort.optional(),
+    blocs_prescrits: z.array(blocPrescrit).optional(),
   }),
   execute: async ({ id, ...data }) => JSON.stringify(run(() => updateSeance(id, data)), null, 2),
 })
@@ -117,6 +136,12 @@ server.addTool({
   name: 'list_fc_zones',
   description: "Liste les zones de fréquence cardiaque définies par l'utilisateur (lecture seule)",
   execute: async () => JSON.stringify(run(() => listFcZones()), null, 2),
+})
+
+server.addTool({
+  name: 'list_power_zones',
+  description: "Liste les zones de puissance (Z1-Z5) utilisées par le moteur de scoring pour segmenter les séances réalisées (lecture seule, maintenues manuellement, indépendantes du profil Garmin)",
+  execute: async () => JSON.stringify(run(() => listPowerZones()), null, 2),
 })
 
 // FastMCP always also mounts a fixed, separate legacy-SSE compatibility

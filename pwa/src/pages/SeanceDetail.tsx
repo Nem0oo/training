@@ -87,12 +87,37 @@ export function SeanceDetail() {
               <div className="flex items-center gap-2 flex-wrap">
                 <TypeBadge type={seance.type} />
                 <EtatBadge etat={seance.etat} />
+                {seance.categorie !== 'autre' && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">{seance.categorie}</span>
+                )}
+                {seance.condition_signalee && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-900/50 text-amber-400">
+                    Condition signalée — exclue du scoring
+                  </span>
+                )}
               </div>
               <p className="text-slate-300 text-sm">
                 {new Date(seance.date).toLocaleDateString('fr', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
               {seance.contenu && (
                 <p className="text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">{seance.contenu}</p>
+              )}
+              {seance.blocs_prescrits && seance.blocs_prescrits.length > 0 && (
+                <div className="pt-1">
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Blocs prescrits</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {seance.blocs_prescrits.map((b, i) => (
+                      <span key={i} className="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded-md font-mono">
+                        {b.zone_cible} · {b.duree_min}min{b.repetitions ? ` × ${b.repetitions}` : ''}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {seance.garmin_activity_id && (
+                <p className="text-xs text-slate-500">
+                  Activité Garmin : <span className="font-mono text-slate-400">{seance.garmin_activity_id}</span>
+                </p>
               )}
             </div>
 

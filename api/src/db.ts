@@ -48,4 +48,43 @@ try {
   db.exec(`ALTER TABLE seances ADD COLUMN commentaire_coach TEXT NOT NULL DEFAULT ''`)
 } catch { /* column already exists */ }
 
+// Colonnes du moteur de scoring (voir Course 2026-2027 / scoring séances).
+// Pas de CHECK ici : ALTER TABLE ADD COLUMN a des limites sur les contraintes
+// multi-colonnes selon la version SQLite embarquée ; la validation vit dans
+// les routes (voir routes/seances.ts).
+try {
+  db.exec(`ALTER TABLE seances ADD COLUMN condition_signalee INTEGER NOT NULL DEFAULT 0`)
+} catch { /* column already exists */ }
+try {
+  db.exec(`ALTER TABLE seances ADD COLUMN garmin_activity_id TEXT`)
+} catch { /* column already exists */ }
+try {
+  // Pas de mapping automatique depuis l'ancien champ `type` (valeurs non
+  // fiables pour le moteur) — 'autre' est un défaut neutre pour l'historique.
+  db.exec(`ALTER TABLE seances ADD COLUMN categorie TEXT NOT NULL DEFAULT 'autre'`)
+} catch { /* column already exists */ }
+try {
+  db.exec(`ALTER TABLE seances ADD COLUMN nature_effort TEXT NOT NULL DEFAULT 'non_applicable'`)
+} catch { /* column already exists */ }
+try {
+  db.exec(`ALTER TABLE seances ADD COLUMN blocs_prescrits TEXT`)
+} catch { /* column already exists */ }
+try {
+  // Sortie du moteur (effet_reel_brut, 7 axes) — jamais écrit par
+  // create_seance/update_seance, uniquement par le calcul déclenché en 2.2/2.3.
+  db.exec(`ALTER TABLE seances ADD COLUMN effet_reel_brut TEXT`)
+} catch { /* column already exists */ }
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS power_zones (
+    id TEXT PRIMARY KEY,
+    zone TEXT NOT NULL UNIQUE CHECK(zone IN ('Z1','Z2','Z3','Z4','Z5')),
+    nom TEXT NOT NULL,
+    power_min INTEGER NOT NULL CHECK(power_min >= 0),
+    power_max INTEGER,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+`)
+
 export default db

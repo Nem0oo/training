@@ -9,6 +9,7 @@ import { Historique } from './pages/Historique'
 import { Stats } from './pages/Stats'
 import { VMAPage } from './pages/VMA'
 import { FCZonesPage } from './pages/FCZones'
+import { PowerZonesPage } from './pages/PowerZones'
 import { ParametresPage } from './pages/Parametres'
 
 export function App() {
@@ -40,6 +41,7 @@ export function App() {
         <Route path="/stats" element={<Stats />} />
         <Route path="/vma" element={<VMAPage />} />
         <Route path="/fc-zones" element={<FCZonesPage />} />
+        <Route path="/power-zones" element={<PowerZonesPage />} />
         <Route path="/parametres" element={<ParametresPage />} />
       </Routes>
       <BottomNav />
