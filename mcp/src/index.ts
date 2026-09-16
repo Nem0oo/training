@@ -32,9 +32,12 @@ const blocPrescrit = z.object({
   repetitions: z.number().positive().describe('Informatif seulement, non utilisé par le moteur de conformité').optional(),
 })
 
-function run<T>(fn: () => T): T {
+// tools.ts est un client HTTP (fetch) vers l'API — toutes ses fonctions sont
+// async. `run` doit donc awaiter fn(), sinon JSON.stringify sérialise la
+// Promise elle-même (aucune propriété énumérable) en "{}", silencieusement.
+async function run<T>(fn: () => T | Promise<T>): Promise<T> {
   try {
-    return fn()
+    return await fn()
   } catch (err) {
     throw new UserError((err as Error).message)
   }
@@ -69,14 +72,14 @@ server.addTool({
     etat: seanceEtat.describe("Filtre optionnel par état. Omettre ce champ pour récupérer les séances de tous les états.").optional(),
     limit: z.number().describe('Nombre max de résultats (défaut 50)').optional(),
   }),
-  execute: async (args) => JSON.stringify(run(() => listSeances(args)), null, 2),
+  execute: async (args) => JSON.stringify(await run(() => listSeances(args)), null, 2),
 })
 
 server.addTool({
   name: 'get_seance',
   description: "Récupère le détail d'une séance par son id",
   parameters: z.object({ id: z.string() }),
-  execute: async (args) => JSON.stringify(run(() => getSeance(args.id)), null, 2),
+  execute: async (args) => JSON.stringify(await run(() => getSeance(args.id)), null, 2),
 })
 
 server.addTool({
@@ -95,7 +98,7 @@ server.addTool({
     nature_effort: natureEffort.describe("Requis pour distinguer les deux répartitions Z4/Z5 (continu vs répétitions courtes) sur les séances cardio/competition").optional(),
     blocs_prescrits: z.array(blocPrescrit).describe('Séance prescrite, agrégée par zone pour le calcul de conformité (2.2)').optional(),
   }),
-  execute: async (args) => JSON.stringify(run(() => createSeance(args)), null, 2),
+  execute: async (args) => JSON.stringify(await run(() => createSeance(args)), null, 2),
 })
 
 server.addTool({
@@ -115,14 +118,14 @@ server.addTool({
     nature_effort: natureEffort.optional(),
     blocs_prescrits: z.array(blocPrescrit).optional(),
   }),
-  execute: async ({ id, ...data }) => JSON.stringify(run(() => updateSeance(id, data)), null, 2),
+  execute: async ({ id, ...data }) => JSON.stringify(await run(() => updateSeance(id, data)), null, 2),
 })
 
 server.addTool({
   name: 'delete_seance',
   description: 'Supprime une séance',
   parameters: z.object({ id: z.string() }),
-  execute: async (args) => JSON.stringify(run(() => deleteSeance(args.id)), null, 2),
+  execute: async (args) => JSON.stringify(await run(() => deleteSeance(args.id)), null, 2),
 })
 
 server.addTool({
@@ -131,32 +134,32 @@ server.addTool({
   parameters: z.object({
     weeks: z.number().describe('Nombre de semaines à analyser (défaut 4)').optional(),
   }),
-  execute: async (args) => JSON.stringify(run(() => getStats(args.weeks)), null, 2),
+  execute: async (args) => JSON.stringify(await run(() => getStats(args.weeks)), null, 2),
 })
 
 server.addTool({
   name: 'list_fc_zones',
   description: "Liste les zones de fréquence cardiaque définies par l'utilisateur (lecture seule)",
-  execute: async () => JSON.stringify(run(() => listFcZones()), null, 2),
+  execute: async () => JSON.stringify(await run(() => listFcZones()), null, 2),
 })
 
 server.addTool({
   name: 'list_power_zones',
   description: "Liste les zones de puissance (Z1-Z5) utilisées par le moteur de scoring pour segmenter les séances réalisées (lecture seule, maintenues manuellement, indépendantes du profil Garmin)",
-  execute: async () => JSON.stringify(run(() => listPowerZones()), null, 2),
+  execute: async () => JSON.stringify(await run(() => listPowerZones()), null, 2),
 })
 
 server.addTool({
   name: 'get_seance_radar',
   description: "Radar PAR SÉANCE : répartition de l'impact de cette séance entre les 7 axes, en proportions internes (normalisées par la somme des 7 valeurs de CETTE séance). Échelle différente du radar cumulé (get_radar_cumule) — ne jamais comparer les deux directement.",
   parameters: z.object({ id: z.string() }),
-  execute: async (args) => JSON.stringify(run(() => getSeanceRadar(args.id)), null, 2),
+  execute: async (args) => JSON.stringify(await run(() => getSeanceRadar(args.id)), null, 2),
 })
 
 server.addTool({
   name: 'get_radar_cumule',
   description: "Radar CUMULÉ : état de forme global sur les 7 axes (moyenne mobile exponentielle mise à jour à chaque séance scorée). Sur sa propre échelle — ne jamais comparer directement aux proportions de get_seance_radar.",
-  execute: async () => JSON.stringify(run(() => getRadarCumule()), null, 2),
+  execute: async () => JSON.stringify(await run(() => getRadarCumule()), null, 2),
 })
 
 // FastMCP always also mounts a fixed, separate legacy-SSE compatibility
