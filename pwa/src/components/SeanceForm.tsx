@@ -28,6 +28,8 @@ export function SeanceForm({ initial, onSubmit, onCancel, submitLabel = 'Enregis
   const [saving,              setSaving]              = useState(false)
   const [error,                setError]               = useState('')
 
+  const natureEffortPertinente = categorie === 'cardio' || categorie === 'competition'
+
   function addBloc() {
     setBlocsPrescrits(prev => [...prev, { zone_cible: 'Z1', duree_min: 10 }])
   }
@@ -54,6 +56,7 @@ export function SeanceForm({ initial, onSubmit, onCancel, submitLabel = 'Enregis
         condition_signalee: conditionSignalee,
         blocs_prescrits: blocsPrescrits.length > 0 ? blocsPrescrits : null,
         effet_reel_brut: initial?.effet_reel_brut ?? null,
+        conformite: initial?.conformite ?? null,
       })
     } catch (err) {
       setError((err as Error).message)
@@ -89,21 +92,33 @@ export function SeanceForm({ initial, onSubmit, onCancel, submitLabel = 'Enregis
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className={natureEffortPertinente ? 'grid grid-cols-2 gap-3' : ''}>
         <div>
           <label className={labelCls}>Catégorie</label>
-          <select className={inputCls} value={categorie} onChange={e => setCategorie(e.target.value as SeanceCategorie)}>
+          <select
+            className={inputCls}
+            value={categorie}
+            onChange={e => {
+              const next = e.target.value as SeanceCategorie
+              setCategorie(next)
+              const pertinente = next === 'cardio' || next === 'competition'
+              if (!pertinente) setNatureEffort('non_applicable')
+              else if (natureEffort === 'non_applicable') setNatureEffort('continu')
+            }}
+          >
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
-        <div>
-          <label className={labelCls}>Nature de l'effort</label>
-          <select className={inputCls} value={natureEffort} onChange={e => setNatureEffort(e.target.value as NatureEffort)}>
-            {NATURES_EFFORT.map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
-        </div>
+        {natureEffortPertinente && (
+          <div>
+            <label className={labelCls}>Nature de l'effort</label>
+            <select className={inputCls} value={natureEffort} onChange={e => setNatureEffort(e.target.value as NatureEffort)}>
+              {NATURES_EFFORT.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+        )}
       </div>
-      {(categorie === 'cardio' || categorie === 'competition') && natureEffort === 'non_applicable' && (
+      {natureEffortPertinente && natureEffort === 'non_applicable' && (
         <p className="text-xs text-amber-400 -mt-2">
           Sans nature de l'effort (continu / répétition courte), le moteur de scoring ne pourra pas répartir précisément l'effet des zones Z4/Z5.
         </p>

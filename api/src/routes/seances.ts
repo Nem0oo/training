@@ -46,6 +46,7 @@ function deserialize(row: Record<string, unknown>) {
     condition_signalee: Boolean(row.condition_signalee),
     blocs_prescrits: row.blocs_prescrits ? JSON.parse(row.blocs_prescrits as string) : null,
     effet_reel_brut: row.effet_reel_brut ? JSON.parse(row.effet_reel_brut as string) : null,
+    conformite: row.conformite ? JSON.parse(row.conformite as string) : null,
   }
 }
 

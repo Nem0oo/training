@@ -5,6 +5,7 @@ import type { Seance } from '../types'
 import { TypeBadge } from '../components/TypeBadge'
 import { EtatBadge } from '../components/EtatBadge'
 import { SeanceForm } from '../components/SeanceForm'
+import { SeanceRadar } from '../components/SeanceRadar'
 
 export function SeanceDetail() {
   const { id } = useParams<{ id: string }>()
@@ -120,6 +121,8 @@ export function SeanceDetail() {
                 </p>
               )}
             </div>
+
+            <SeanceRadar seance={seance} />
 
             <div className="bg-slate-800 rounded-xl p-4 space-y-2">
               <div className="flex items-center justify-between">

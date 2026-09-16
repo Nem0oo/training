@@ -22,6 +22,24 @@ export interface EffetReelBrut {
   resilience_thermique: number
 }
 
+export interface ZoneCompliance {
+  zone: ZoneCible
+  temps_realise_min: number
+  temps_prescrit_min: number
+  ratio_pct: number | null
+  statut: '✅' | '⚠️' | '❌'
+}
+
+// Résultat de conformité (2.2) — jamais écrit par l'UI/MCP, sortie du moteur.
+export interface Conformite {
+  par_zone: ZoneCompliance[]
+  duree_totale_realisee_min: number
+  duree_totale_prescrite_min: number
+  duree_conformite_pct: number | null
+  conformite_intensite_pct: number | null
+  conformite_globale_pct: number
+}
+
 export interface Seance {
   id: string
   nom: string
@@ -36,7 +54,22 @@ export interface Seance {
   nature_effort: NatureEffort
   blocs_prescrits: BlocPrescrit[] | null
   effet_reel_brut: EffetReelBrut | null
+  conformite: Conformite | null
   created_at: string
+  updated_at: string
+}
+
+// 3.1 — radar par séance : proportions internes (somme = 1), échelle propre à
+// CETTE séance. Ne jamais comparer aux valeurs brutes du radar cumulé (3.2).
+export interface SeanceRadar {
+  proportions: EffetReelBrut
+  effet_reel_brut: EffetReelBrut
+}
+
+// 3.2 — radar cumulé (état de forme global), échelle EMA — jamais la même
+// échelle que SeanceRadar.
+export interface RadarCumule {
+  axes: EffetReelBrut
   updated_at: string
 }
 
