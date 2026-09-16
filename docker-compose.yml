@@ -1,3 +1,5 @@
+name: training-dev
+
 services:
   api:
     build: ./api
