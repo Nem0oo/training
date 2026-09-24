@@ -2,6 +2,9 @@ import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import db from '../db.js'
 import { runScoringPipeline } from '../scoring/pipeline.js'
+import { loadScoringConfig } from '../scoring/config.js'
+import { estimateDistancePrevueKm } from '../scoring/distance.js'
+import type { BlocPrescrit } from '../scoring/types.js'
 
 const router = Router()
 
@@ -38,6 +41,13 @@ function validateBlocsPrescrits(blocs: unknown): string | null {
   return null
 }
 
+function validateTags(tags: unknown): string | null {
+  if (tags === undefined || tags === null) return null
+  if (!Array.isArray(tags)) return 'tags doit être un tableau'
+  for (const t of tags) if (typeof t !== 'string') return 'chaque tag doit être une chaîne'
+  return null
+}
+
 // Ligne SQLite -> objet API : parse les colonnes JSON stockées en TEXT et
 // convertit le booléen SQLite (0/1) en booléen JS.
 function deserialize(row: Record<string, unknown>) {
@@ -47,6 +57,7 @@ function deserialize(row: Record<string, unknown>) {
     blocs_prescrits: row.blocs_prescrits ? JSON.parse(row.blocs_prescrits as string) : null,
     effet_reel_brut: row.effet_reel_brut ? JSON.parse(row.effet_reel_brut as string) : null,
     conformite: row.conformite ? JSON.parse(row.conformite as string) : null,
+    tags: row.tags ? JSON.parse(row.tags as string) : [],
   }
 }
 
@@ -66,10 +77,17 @@ router.get('/', (req, res) => {
   res.json({ data: rows.map(deserialize) })
 })
 
+router.get('/tags', (req, res) => {
+  const rows = db.prepare(`SELECT tags FROM seances WHERE tags IS NOT NULL AND tags != '[]'`).all() as { tags: string }[]
+  const set = new Set<string>()
+  for (const r of rows) for (const t of JSON.parse(r.tags) as string[]) set.add(t)
+  res.json({ data: [...set].sort() })
+})
+
 router.post('/', async (req, res) => {
   const {
     nom, date, contenu, type, etat, commentaire_coach,
-    condition_signalee, garmin_activity_id, categorie, nature_effort, blocs_prescrits,
+    condition_signalee, garmin_activity_id, categorie, nature_effort, blocs_prescrits, tags,
   } = req.body
   if (!nom || !date || !type) {
     res.status(400).json({ error: 'nom, date et type sont requis' })
@@ -85,16 +103,24 @@ router.post('/', async (req, res) => {
   }
   const blocsError = validateBlocsPrescrits(blocs_prescrits)
   if (blocsError) { res.status(400).json({ error: blocsError }); return }
+  const tagsError = validateTags(tags)
+  if (tagsError) { res.status(400).json({ error: tagsError }); return }
+
+  const distancePrevueKm = estimateDistancePrevueKm(
+    (blocs_prescrits as BlocPrescrit[] | undefined) ?? null,
+    loadScoringConfig().estimation_distance,
+  )
 
   const now = new Date().toISOString()
   const id = uuidv4()
   db.prepare(`
     INSERT INTO seances (
       id, nom, date, contenu, type, etat, commentaire_coach,
-      condition_signalee, garmin_activity_id, categorie, nature_effort, blocs_prescrits,
+      condition_signalee, garmin_activity_id, categorie, nature_effort, blocs_prescrits, tags,
+      distance_prevue_km,
       created_at, updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, nom, date, contenu ?? '', type, etat ?? 'planifiee', commentaire_coach ?? '',
     condition_signalee ? 1 : 0,
@@ -102,6 +128,8 @@ router.post('/', async (req, res) => {
     categorie ?? 'autre',
     nature_effort ?? 'non_applicable',
     blocs_prescrits ? JSON.stringify(blocs_prescrits) : null,
+    JSON.stringify(tags ?? []),
+    distancePrevueKm,
     now, now,
   )
 
@@ -132,12 +160,17 @@ router.put('/:id', async (req, res) => {
     const blocsError = validateBlocsPrescrits(req.body.blocs_prescrits)
     if (blocsError) { res.status(400).json({ error: blocsError }); return }
   }
+  if (req.body.tags !== undefined) {
+    const tagsError = validateTags(req.body.tags)
+    if (tagsError) { res.status(400).json({ error: tagsError }); return }
+  }
 
   // effet_reel_brut est une sortie du moteur de scoring : jamais acceptée en
-  // écriture via create_seance/update_seance (MCP ou UI).
+  // écriture via create_seance/update_seance (MCP ou UI). distance_prevue_km
+  // suit la même règle (recalculée ci-dessous, jamais lue depuis req.body).
   const allowed = [
     'nom', 'date', 'contenu', 'type', 'etat', 'commentaire_coach',
-    'condition_signalee', 'garmin_activity_id', 'categorie', 'nature_effort', 'blocs_prescrits',
+    'condition_signalee', 'garmin_activity_id', 'categorie', 'nature_effort', 'blocs_prescrits', 'tags',
   ]
   const updates = Object.entries(req.body).filter(([k]) => allowed.includes(k))
   if (updates.length === 0) { res.json({ data: deserialize(existing as Record<string, unknown>) }); return }
@@ -146,10 +179,19 @@ router.put('/:id', async (req, res) => {
   const values = updates.map(([k, v]) => {
     if (k === 'condition_signalee') return v ? 1 : 0
     if (k === 'blocs_prescrits') return v ? JSON.stringify(v) : null
+    if (k === 'tags') return JSON.stringify(v ?? [])
     return v
   })
-  db.prepare(`UPDATE seances SET ${fields}, updated_at = ? WHERE id = ?`)
-    .run(...values, new Date().toISOString(), req.params.id)
+
+  // blocs_prescrits pilote distance_prevue_km — recalculée dès que le champ
+  // est touché (valeur envoyée ou existante sinon), jamais dérivée à part.
+  const blocsPrescritsFinal = 'blocs_prescrits' in req.body
+    ? (req.body.blocs_prescrits as BlocPrescrit[] | null)
+    : (existing.blocs_prescrits ? JSON.parse(existing.blocs_prescrits as string) : null)
+  const distancePrevueKm = estimateDistancePrevueKm(blocsPrescritsFinal, loadScoringConfig().estimation_distance)
+
+  db.prepare(`UPDATE seances SET ${fields}, distance_prevue_km = ?, updated_at = ? WHERE id = ?`)
+    .run(...values, distancePrevueKm, new Date().toISOString(), req.params.id)
 
   const scoring_error = await maybeTriggerScoring(req.params.id, req.body.garmin_activity_id, existing.garmin_activity_id)
   const data = deserialize(db.prepare('SELECT * FROM seances WHERE id = ?').get(req.params.id) as Record<string, unknown>)

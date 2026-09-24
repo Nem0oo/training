@@ -115,6 +115,21 @@ export function SeanceDetail() {
                   </div>
                 </div>
               )}
+              {(seance.distance_prevue_km !== null || seance.distance_realisee_km !== null) && (
+                <p className="text-sm text-slate-300">
+                  Volume :
+                  {seance.distance_prevue_km !== null && <> {seance.distance_prevue_km.toFixed(1)} km prévu</>}
+                  {seance.distance_prevue_km !== null && seance.distance_realisee_km !== null && ' · '}
+                  {seance.distance_realisee_km !== null && <>{seance.distance_realisee_km.toFixed(1)} km réalisé</>}
+                </p>
+              )}
+              {seance.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {seance.tags.map(t => (
+                    <span key={t} className="text-xs bg-slate-700/60 text-slate-400 px-2 py-0.5 rounded-full">#{t}</span>
+                  ))}
+                </div>
+              )}
               {seance.garmin_activity_id && (
                 <p className="text-xs text-slate-500">
                   Activité Garmin : <span className="font-mono text-slate-400">{seance.garmin_activity_id}</span>

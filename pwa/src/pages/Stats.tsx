@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
-import type { Stats as StatsType, SeanceType, RadarCumule } from '../types'
+import type { Stats as StatsType, SeanceType, RadarCumule, VolumePoint } from '../types'
 import { RadarChart } from '../components/RadarChart'
+import { VolumeChart } from '../components/VolumeChart'
 import { toChartData } from '../lib/axes'
 
 const typeLabels: Record<SeanceType, string> = {
@@ -27,6 +28,9 @@ export function Stats() {
   const [weeks, setWeeks] = useState(4)
   const [radarCumule, setRadarCumule] = useState<RadarCumule | null>(null)
   const [radarCumuleLoaded, setRadarCumuleLoaded] = useState(false)
+  const [volume, setVolume] = useState<VolumePoint[] | null>(null)
+  const [tags, setTags] = useState<string[]>([])
+  const [volumeTag, setVolumeTag] = useState('')
 
   useEffect(() => {
     api.stats.get(weeks).then(setStats).catch(console.error)
@@ -39,6 +43,14 @@ export function Stats() {
       .catch(() => setRadarCumule(null))
       .finally(() => setRadarCumuleLoaded(true))
   }, [])
+
+  useEffect(() => {
+    api.seances.tags().then(setTags).catch(console.error)
+  }, [])
+
+  useEffect(() => {
+    api.stats.volume(volumeTag || undefined).then(setVolume).catch(console.error)
+  }, [volumeTag])
 
   const termineeCount = stats?.par_etat?.terminee ?? 0
   const planifieeCount = stats?.par_etat?.planifiee ?? 0
@@ -81,6 +93,28 @@ export function Stats() {
           </div>
         </div>
       )}
+
+      <div className="max-w-lg mx-auto px-4 pt-4">
+        <div className="bg-slate-800 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-sm font-semibold text-slate-300">Volume cumulé</h2>
+            {tags.length > 0 && (
+              <select
+                value={volumeTag}
+                onChange={e => setVolumeTag(e.target.value)}
+                className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1 text-slate-200 text-xs"
+              >
+                <option value="">Tous les tags</option>
+                {tags.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 mb-2">
+            Km cumulés depuis le début du plan — prévu (blocs prescrits) vs réalisé (activités Garmin scorées).
+          </p>
+          {volume ? <VolumeChart data={volume} /> : <p className="text-sm text-slate-500 py-8 text-center">Chargement…</p>}
+        </div>
+      </div>
 
       {stats && (
         <div className="max-w-lg mx-auto px-4 py-4 space-y-4">

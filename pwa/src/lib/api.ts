@@ -1,4 +1,4 @@
-import type { Seance, Stats, VMA, FCZone, PowerZone, SeanceRadar, RadarCumule } from '../types'
+import type { Seance, Stats, VMA, FCZone, PowerZone, SeanceRadar, RadarCumule, VolumePoint } from '../types'
 
 const BASE = '/api'
 
@@ -42,6 +42,7 @@ export const api = {
     // 3.1 — jette (409) si pas encore scorée ; le composant appelant décide
     // comment afficher cet état, voir components/SeanceRadar.tsx.
     radar: (id: string) => req<SeanceRadar>(`/seances/${id}/radar`),
+    tags: () => req<string[]>('/seances/tags'),
   },
   radarCumule: {
     // 3.2 — jette (404) tant qu'aucune séance n'a été scorée.
@@ -49,6 +50,7 @@ export const api = {
   },
   stats: {
     get: (weeks = 4) => req<Stats>(`/stats?weeks=${weeks}`),
+    volume: (tag?: string) => req<VolumePoint[]>(`/stats/volume${tag ? `?tag=${encodeURIComponent(tag)}` : ''}`),
   },
   vma: {
     list:   ()                                              => req<VMA[]>('/vma'),

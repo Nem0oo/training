@@ -98,8 +98,8 @@ export async function runScoringPipeline(seanceId: string, garminActivityId: str
     plafondReference,
   })
 
-  db.prepare('UPDATE seances SET effet_reel_brut = ?, conformite = ?, updated_at = ? WHERE id = ?')
-    .run(JSON.stringify(effet), JSON.stringify(compliance), new Date().toISOString(), seanceId)
+  db.prepare('UPDATE seances SET effet_reel_brut = ?, conformite = ?, distance_realisee_km = ?, updated_at = ? WHERE id = ?')
+    .run(JSON.stringify(effet), JSON.stringify(compliance), activity.summary.total_distance_km, new Date().toISOString(), seanceId)
 
   const nouveauCumule = updateEma(getRadarCumule(), effet, config.constante_temps_ema_jours)
   saveRadarCumule(nouveauCumule)

@@ -55,8 +55,22 @@ export interface Seance {
   blocs_prescrits: BlocPrescrit[] | null
   effet_reel_brut: EffetReelBrut | null
   conformite: Conformite | null
+  tags: string[]
+  // Dérivé de blocs_prescrits (échauffement/récup forfaitaires + allure par
+  // zone, voir config/scoring.json) — jamais écrit par l'UI/MCP.
+  distance_prevue_km: number | null
+  // Distance réelle de l'activité Garmin liée — renseigné seulement une fois
+  // la séance scorée (voir pipeline.ts), jamais écrit par l'UI/MCP.
+  distance_realisee_km: number | null
   created_at: string
   updated_at: string
+}
+
+// Un point par semaine ISO (lundi), cumulé depuis la première séance du plan.
+export interface VolumePoint {
+  semaine: string
+  cumule_prevu_km: number
+  cumule_realise_km: number
 }
 
 // 3.1 — radar par séance : proportions internes (somme = 1), échelle propre à

@@ -28,6 +28,7 @@ export interface GarminActivity {
     duration_seconds: number
     start_time: string
     end_time: string
+    total_distance_km: number
   }
   series: {
     timestamps: string[]

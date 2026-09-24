@@ -81,6 +81,23 @@ try {
   // effet_reel_brut : jamais accepté via create_seance/update_seance.
   db.exec(`ALTER TABLE seances ADD COLUMN conformite TEXT`)
 } catch { /* column already exists */ }
+try {
+  // Tags libres, tableau JSON de strings — accepté en écriture via
+  // create_seance/update_seance (voir routes/seances.ts).
+  db.exec(`ALTER TABLE seances ADD COLUMN tags TEXT`)
+} catch { /* column already exists */ }
+try {
+  // Volume prévu (km), dérivé de blocs_prescrits par estimateDistancePrevueKm
+  // (voir scoring/distance.ts) — recalculé à chaque create/update, jamais
+  // accepté directement du client (même statut que effet_reel_brut).
+  db.exec(`ALTER TABLE seances ADD COLUMN distance_prevue_km REAL`)
+} catch { /* column already exists */ }
+try {
+  // Volume réalisé (km), lu directement depuis l'activité Garmin
+  // (summary.total_distance_km) au moment du scoring (pipeline.ts) — jamais
+  // accepté directement du client.
+  db.exec(`ALTER TABLE seances ADD COLUMN distance_realisee_km REAL`)
+} catch { /* column already exists */ }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS power_zones (

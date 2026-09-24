@@ -47,6 +47,10 @@ export function getSeance(id: string) {
   return apiRequest(`/api/seances/${id}`)
 }
 
+export function listTags() {
+  return apiRequest('/api/seances/tags')
+}
+
 export function createSeance(data: {
   nom: string
   date: string
@@ -59,6 +63,7 @@ export function createSeance(data: {
   categorie?: string
   nature_effort?: string
   blocs_prescrits?: unknown
+  tags?: string[]
 }) {
   return apiRequest('/api/seances', { method: 'POST', body: JSON.stringify(data) })
 }
@@ -75,6 +80,7 @@ export function updateSeance(id: string, data: {
   categorie?: string
   nature_effort?: string
   blocs_prescrits?: unknown
+  tags?: string[]
 }) {
   return apiRequest(`/api/seances/${id}`, { method: 'PUT', body: JSON.stringify(data) })
 }
@@ -85,6 +91,10 @@ export function deleteSeance(id: string) {
 
 export function getStats(weeks?: number) {
   return apiRequest(`/api/stats${weeks ? `?weeks=${weeks}` : ''}`)
+}
+
+export function getVolume(tag?: string) {
+  return apiRequest(`/api/stats/volume${tag ? `?tag=${encodeURIComponent(tag)}` : ''}`)
 }
 
 export function listFcZones() {

@@ -48,8 +48,13 @@ export function SeanceCard({ seance, onUpdated }: { seance: Seance; onUpdated?: 
           <p className="font-medium text-slate-100 text-sm leading-tight">{seance.nom}</p>
           <EtatBadge etat={seance.etat} />
         </div>
-        <div className="mt-2">
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
           <TypeBadge type={seance.type} />
+          {(seance.distance_realisee_km ?? seance.distance_prevue_km) !== null && (
+            <span className="text-xs text-slate-400 font-mono">
+              {(seance.distance_realisee_km ?? seance.distance_prevue_km)!.toFixed(1)} km
+            </span>
+          )}
         </div>
         {seance.contenu && (
           <p className="mt-2 text-xs text-slate-400 line-clamp-2">{seance.contenu}</p>
