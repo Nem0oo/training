@@ -11,6 +11,8 @@ import {
   listPowerZones,
   getSeanceRadar,
   getRadarCumule,
+  listTags,
+  getVolume,
 } from './tools.js'
 
 const PORT = Number(process.env.PORT ?? 3002)
@@ -96,7 +98,8 @@ server.addTool({
     garmin_activity_id: z.string().describe("ID de l'activité Garmin liée (déclenchera le moteur de scoring une fois branché)").optional(),
     categorie: seanceCategorie.describe('Catégorie utilisée par le moteur de scoring').optional(),
     nature_effort: natureEffort.describe("Requis pour distinguer les deux répartitions Z4/Z5 (continu vs répétitions courtes) sur les séances cardio/competition").optional(),
-    blocs_prescrits: z.array(blocPrescrit).describe('Séance prescrite, agrégée par zone pour le calcul de conformité (2.2)').optional(),
+    blocs_prescrits: z.array(blocPrescrit).describe('Séance prescrite, agrégée par zone pour le calcul de conformité (2.2). Pilote aussi le volume prévu en km, calculé automatiquement (voir distance_prevue_km en lecture).').optional(),
+    tags: z.array(z.string()).describe('Tags libres (ex: "trail", "reprise") — filtrables sur le graphe de volume cumulé').optional(),
   }),
   execute: async (args) => JSON.stringify(await run(() => createSeance(args)), null, 2),
 })
@@ -117,6 +120,7 @@ server.addTool({
     categorie: seanceCategorie.optional(),
     nature_effort: natureEffort.optional(),
     blocs_prescrits: z.array(blocPrescrit).optional(),
+    tags: z.array(z.string()).optional(),
   }),
   execute: async ({ id, ...data }) => JSON.stringify(await run(() => updateSeance(id, data)), null, 2),
 })
@@ -160,6 +164,21 @@ server.addTool({
   name: 'get_radar_cumule',
   description: "Radar CUMULÉ : état de forme global sur les 7 axes (moyenne mobile exponentielle mise à jour à chaque séance scorée). Sur sa propre échelle — ne jamais comparer directement aux proportions de get_seance_radar.",
   execute: async () => JSON.stringify(await run(() => getRadarCumule()), null, 2),
+})
+
+server.addTool({
+  name: 'list_tags',
+  description: "Liste les tags distincts déjà utilisés sur des séances (lecture seule, pas de référentiel géré — tags libres).",
+  execute: async () => JSON.stringify(await run(() => listTags()), null, 2),
+})
+
+server.addTool({
+  name: 'get_volume',
+  description: "Volume cumulé en km depuis le début du plan, bucketé par semaine (lundi) : courbe prévue (distance_prevue_km, toutes séances) vs réalisée (distance_realisee_km, uniquement séances scorées). Filtrable par tag.",
+  parameters: z.object({
+    tag: z.string().describe('Filtre sur un tag précis (voir list_tags)').optional(),
+  }),
+  execute: async (args) => JSON.stringify(await run(() => getVolume(args.tag)), null, 2),
 })
 
 // FastMCP always also mounts a fixed, separate legacy-SSE compatibility

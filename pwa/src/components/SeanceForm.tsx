@@ -25,6 +25,7 @@ export function SeanceForm({ initial, onSubmit, onCancel, submitLabel = 'Enregis
   const [garminActivityId,    setGarminActivityId]    = useState(initial?.garmin_activity_id ?? '')
   const [conditionSignalee,   setConditionSignalee]   = useState(initial?.condition_signalee ?? false)
   const [blocsPrescrits,      setBlocsPrescrits]      = useState<BlocPrescrit[]>(initial?.blocs_prescrits ?? [])
+  const [tagsInput,           setTagsInput]           = useState((initial?.tags ?? []).join(', '))
   const [saving,              setSaving]              = useState(false)
   const [error,                setError]               = useState('')
 
@@ -47,6 +48,7 @@ export function SeanceForm({ initial, onSubmit, onCancel, submitLabel = 'Enregis
     setSaving(true)
     setError('')
     try {
+      const tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean)
       await onSubmit({
         nom, date, contenu, type, etat,
         commentaire_coach: initial?.commentaire_coach ?? '',
@@ -57,6 +59,11 @@ export function SeanceForm({ initial, onSubmit, onCancel, submitLabel = 'Enregis
         blocs_prescrits: blocsPrescrits.length > 0 ? blocsPrescrits : null,
         effet_reel_brut: initial?.effet_reel_brut ?? null,
         conformite: initial?.conformite ?? null,
+        tags,
+        // Dérivés côté serveur (voir types.ts) — jamais éditables ici,
+        // seulement préservés pour satisfaire le type Seance complet.
+        distance_prevue_km: initial?.distance_prevue_km ?? null,
+        distance_realisee_km: initial?.distance_realisee_km ?? null,
       })
     } catch (err) {
       setError((err as Error).message)
@@ -151,6 +158,17 @@ export function SeanceForm({ initial, onSubmit, onCancel, submitLabel = 'Enregis
           value={contenu}
           onChange={e => setContenu(e.target.value)}
         />
+      </div>
+
+      <div>
+        <label className={labelCls}>Tags</label>
+        <input
+          className={inputCls}
+          value={tagsInput}
+          onChange={e => setTagsInput(e.target.value)}
+          placeholder="ex: trail, reprise, chaleur"
+        />
+        <p className="text-xs text-slate-500 mt-1">Séparés par des virgules — utilisés pour filtrer le graphe de volume dans Stats.</p>
       </div>
 
       <div>

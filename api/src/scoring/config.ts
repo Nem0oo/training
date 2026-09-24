@@ -26,6 +26,12 @@ interface ScoringConfig {
   coeff_plafond: number
   plafond_fenetre_seances: number
   constante_temps_ema_jours: number
+  estimation_distance: {
+    echauffement_km: number
+    recuperation_km: number
+    allure_seuil_tempo_min_par_km: number
+    allure_ef_sl_min_par_km: number
+  }
 }
 
 let cached: ScoringConfig | null = null

@@ -17,7 +17,7 @@ function activityFromPowers(powers: (number | null)[], temperatures?: (number | 
   const timestamps = powers.map((_, i) => new Date(2026, 0, 1, 8, 0, i).toISOString())
   return {
     activity_id: 'test',
-    summary: { duration_seconds: powers.length - 1, start_time: timestamps[0], end_time: timestamps[timestamps.length - 1] },
+    summary: { duration_seconds: powers.length - 1, start_time: timestamps[0], end_time: timestamps[timestamps.length - 1], total_distance_km: 0 },
     series: { timestamps, power_w: powers, temperature_c: temperatures ?? null },
   }
 }

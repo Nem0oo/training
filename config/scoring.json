@@ -115,5 +115,13 @@
   "coeff_plafond": 8,
   "plafond_fenetre_seances": 10,
 
-  "constante_temps_ema_jours": 42
+  "constante_temps_ema_jours": 42,
+
+  "estimation_distance": {
+    "_comment": "Estimation du volume PRÉVU (km) à partir des blocs prescrits — hypothèses arbitraires de l'athlète (2026-09), à recalibrer après les premiers tests seuil/tempo (voir README). echauffement_km et recuperation_km sont des forfaits fixes, ajoutés ensemble dès qu'un bloc Z1 accompagne un bloc structuré Z3/Z4 (jamais au prorata de la durée). allure_*_min_par_km est en minutes décimales : 4.5833333333333335 = 4'35\", 6.75 = 6'45\".",
+    "echauffement_km": 3,
+    "recuperation_km": 1.5,
+    "allure_seuil_tempo_min_par_km": 4.5833333333333335,
+    "allure_ef_sl_min_par_km": 6.75
+  }
 }
