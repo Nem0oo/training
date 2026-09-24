@@ -1,7 +1,7 @@
 {
   "_comment": "Config du moteur de scoring séances. Toutes les valeurs ici sont des points de départ arbitraires (sauf mention contraire), à recalibrer par l'athlète — voir README section 'Scoring séances'. Fichier monté en volume dans le conteneur api (SCORING_CONFIG_PATH) : éditable sans rebuild d'image, un `docker compose restart api` suffit à appliquer un changement.",
 
-  "min_interval_seconds": 60,
+  "min_interval_seconds": 0,
 
   "poids_intensite": {
     "Z1": 1.0,

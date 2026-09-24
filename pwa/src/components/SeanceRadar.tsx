@@ -4,6 +4,16 @@ import { toChartData } from '../lib/axes'
 import { RadarChart } from './RadarChart'
 import type { EffetReelBrut, Seance } from '../types'
 
+// Couleur interpolée en continu autour de la cible (100%) plutôt qu'un
+// statut à 3 paliers — vert pile sur la cible, rouge à ±50pts et au-delà,
+// transition lisse entre les deux.
+function zoneColor(ratioPct: number): string {
+  const distance = Math.abs(ratioPct - 100)
+  const t = Math.min(distance / 50, 1)
+  const hue = 142 * (1 - t)
+  return `hsl(${hue}, 70%, 45%)`
+}
+
 // Point 6 de la spec UI complémentaire : affichage dérivé de l'état des
 // données, pas de champ de statut en base.
 //   - garmin_activity_id vide -> rien
@@ -57,18 +67,40 @@ export function SeanceRadar({ seance }: { seance: Seance }) {
         <div className="pt-2 border-t border-slate-700 space-y-2">
           <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide">Conformité</h3>
           {seance.conformite.par_zone.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {seance.conformite.par_zone.map(z => (
-                <span key={z.zone} className="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded-md font-mono">
-                  {z.statut} {z.zone} · {Math.round(z.temps_realise_min)}/{Math.round(z.temps_prescrit_min)}min
-                </span>
-              ))}
+            <div className="space-y-2">
+              {seance.conformite.par_zone.map(z => {
+                const pct = z.ratio_pct
+                const fillPct = pct !== null ? Math.min(Math.max(pct, 0), 150) / 150 * 100 : 100
+                return (
+                  <div key={z.zone} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-mono font-medium text-slate-300">{z.zone}</span>
+                      <span className="text-slate-400">
+                        {Math.round(z.temps_realise_min)}/{Math.round(z.temps_prescrit_min)}min
+                        {pct !== null && ` · ${Math.round(pct)}%`}
+                      </span>
+                    </div>
+                    <div className="relative h-1.5 rounded-full bg-slate-700 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${fillPct}%`, backgroundColor: pct !== null ? zoneColor(pct) : '#475569' }}
+                      />
+                      {pct !== null && (
+                        <div className="absolute top-0 bottom-0 w-px bg-slate-400/60" style={{ left: `${100 / 150 * 100}%` }} />
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
           {seance.conformite.duree_conformite_pct !== null && (
             <p className="text-xs text-slate-400">
               Durée : {Math.round(seance.conformite.duree_totale_realisee_min)} / {Math.round(seance.conformite.duree_totale_prescrite_min)} min
-              {' '}({Math.round(seance.conformite.duree_conformite_pct)}%)
+              {' '}
+              <span style={{ color: zoneColor(seance.conformite.duree_conformite_pct) }}>
+                ({Math.round(seance.conformite.duree_conformite_pct)}%)
+              </span>
             </p>
           )}
         </div>
