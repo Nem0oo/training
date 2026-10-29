@@ -1,31 +1,28 @@
 import { Router } from 'express'
 import db from '../db.js'
+import { statsPeriod } from '../lib/dates.js'
 
 const router = Router()
 
 router.get('/', (req, res) => {
   const weeks = Number(req.query.weeks) || 4
-  const since = new Date()
-  since.setDate(since.getDate() - weeks * 7)
-  const sinceISO = since.toISOString().slice(0, 10)
-
-  const startOfWeek = new Date()
-  startOfWeek.setDate(startOfWeek.getDate() - ((startOfWeek.getDay() + 6) % 7))
-  const weekISO = startOfWeek.toISOString().slice(0, 10)
+  // Bornées à aujourd'hui : les séances planifiées à venir (plan de saison
+  // importé) ne doivent pas gonfler les « N dernières semaines ».
+  const { since, today, monday, nextMonday } = statsPeriod(new Date(), weeks)
 
   const total = (db.prepare('SELECT COUNT(*) as n FROM seances').get() as { n: number }).n
 
   const parType = db.prepare(
-    'SELECT type, COUNT(*) as n FROM seances WHERE date >= ? GROUP BY type'
-  ).all(sinceISO) as { type: string; n: number }[]
+    'SELECT type, COUNT(*) as n FROM seances WHERE date >= ? AND date <= ? GROUP BY type'
+  ).all(since, today) as { type: string; n: number }[]
 
   const parEtat = db.prepare(
-    'SELECT etat, COUNT(*) as n FROM seances WHERE date >= ? GROUP BY etat'
-  ).all(sinceISO) as { etat: string; n: number }[]
+    'SELECT etat, COUNT(*) as n FROM seances WHERE date >= ? AND date <= ? GROUP BY etat'
+  ).all(since, today) as { etat: string; n: number }[]
 
   const semaineCount = (db.prepare(
-    'SELECT COUNT(*) as n FROM seances WHERE date >= ?'
-  ).get(weekISO) as { n: number }).n
+    'SELECT COUNT(*) as n FROM seances WHERE date >= ? AND date < ?'
+  ).get(monday, nextMonday) as { n: number }).n
 
   res.json({
     data: {

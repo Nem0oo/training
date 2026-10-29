@@ -33,7 +33,7 @@ All endpoints (except `/api/health` and `/api/auth/login`) require an `Authoriza
 |--------|----------|-------------|
 | `GET`    | `/api/health` | Health check (no auth) |
 | `POST`   | `/api/auth/login` | Password login, returns a JWT (30d) |
-| `GET`    | `/api/seances` | List sessions (filters: `from`, `to`, `type`, `etat`, `limit`) |
+| `GET`    | `/api/seances` | List sessions (filters: `from`, `to`, `type`, `etat`, `limit`; `order` = `asc` (default) or `desc`) |
 | `POST`   | `/api/seances` | Create a session |
 | `GET`    | `/api/seances/:id` | Session detail |
 | `PUT`    | `/api/seances/:id` | Update a session |
@@ -116,10 +116,10 @@ A fully deterministic (no ML) engine that scores a running session against what 
 ### How it works
 
 1. **Trigger**: setting `garmin_activity_id` to a non-empty value on `create_seance`/`update_seance` — via the UI or MCP, both run the exact same code (`api/src/routes/seances.ts`) — fetches that activity from [garmin-bridge](https://github.com/Nem0oo/garmin-bridge) (`GARMIN_API_KEY`/`GARMIN_BASE_URL`) and runs the pipeline below. `condition_signalee: true` skips scoring entirely. There is no status field and no automatic retry: if the fetch fails (e.g. activity not synced yet on the Garmin side), the response carries a `scoring_error` message and the session write still succeeds — clear `garmin_activity_id` and set it again to retry.
-2. **Segmentation** (`api/src/scoring/segmentation.ts`): the realized activity is cut into continuous, time-ordered intervals by `power_w` zone (never `hr_bpm` — heart rate lags too much for sub-minute intervals). Any interval under `min_interval_seconds` (60s, config) is dropped.
+2. **Segmentation** (`api/src/scoring/segmentation.ts`): the realized activity is cut into continuous, time-ordered intervals by `power_w` zone (never `hr_bpm` — heart rate lags too much for sub-minute intervals). `power_w` is first smoothed with a centered rolling mean (`lissage_puissance_seconds`, 10s, config) so sensor noise around a zone boundary doesn't fragment the session. Each sample lasts until the next one. Any interval under `min_interval_seconds` (0s by default, config) is dropped.
 3. **Compliance** (`api/src/scoring/compliance.ts`): realized-vs-prescribed time per zone (✅/⚠️/❌ per zone, no single composite score), plus overall duration compliance. `power_w` is the only decisional signal; pace is informational only, never scored.
 4. **Effect model** (`api/src/scoring/effect.ts`): converts each segment into a budget (`hours × poids_intensite[zone]`) and splits it across 7 axes (`endurance_fondamentale`, `seuil_lactique`, `vo2max`, `vma`, `resistance_musculaire`, `economie_course`, `resilience_thermique`) using the repartition table in `config/scoring.json`. `resistance_musculaire` is a per-segment carve-out driven by cumulative continuous-effort duration *before* that segment in the session — same zone/duration segment produces a different effect depending on where it falls in the session. Scaled by an execution factor (from compliance) and capped by an anti-outlier guard against a moving average of comparable recent sessions.
-5. **Cumulative radar** (`api/src/scoring/ema.ts`): each scored session nudges a persistent 7-axis EMA state (`radar_cumule` table, `constante_temps_ema_jours` = 42 days). First-ever session seeds the state directly rather than starting from zero.
+5. **Cumulative radar** (`api/src/scoring/ema.ts`): a daily 7-axis EMA (`constante_temps_ema_jours` = 42 days, same idea as CTL), recomputed on every read of `GET /api/radar-cumule` from all scored, non-flagged sessions in date order. Each day's load is the sum of that day's `effet_reel_brut` (0 on rest days, so the state decays). Starts at 0. Because it is recomputed from history, re-linking, deleting or flagging a session never double-counts or leaves a stale contribution. Clearing `garmin_activity_id` also clears the session's scoring outputs.
 6. **Two radars, two scales, never mixed**: `GET /api/seances/:id/radar` (3.1) is this session's own 7 values normalized as internal proportions (what did *this* session emphasize). `GET /api/radar-cumule` (3.2) is the raw EMA state (where is fitness *now*).
 
 ### Config
@@ -133,10 +133,21 @@ A fully deterministic (no ML) engine that scores a running session against what 
 - **`resistance_musculaire` ramp is a provisional guess**, calibrated on one data point from an unusually intense effort (marathon run near threshold) — likely underestimates real accumulated fatigue for genuine easy-effort (EF) volume. Needs the athlete's own recalibration once more sessions have been scored.
 - **Table rows that don't sum to 100 were a spec bug, since fixed** — see `config/scoring.json`'s `repartition`; Z2's `endurance_fondamentale`/`resilience_thermique` are computed dynamically from temperature so they always sum to 100 by construction, every other row is a fixed 6-number split.
 - **Power zones are maintained by hand**, deliberately decoupled from the Garmin-side power/zone profile — they don't update automatically if a threshold changes.
-- **No retroactive correction of the cumulative radar.** If a session's scoring initially fails and is retried later (after other sessions have already been scored), the EMA is not replayed — it simply continues forward from the corrected value.
 - **`categorie: 'autre'` has no defined scoring rule** — it produces an all-zero `effet_reel_brut` rather than skipping the calculation, so it's visibly "scored with nothing to show" rather than silently missing.
 - **Compliance status thresholds and the plafond reference window** (`conformite_statuts`, `plafond_fenetre_seances` in config) aren't specified in the source spec — implemented with explicit, documented, easily-tunable defaults.
 
 ### Tests
 
-`api/src/scoring/*.test.ts` — unit tests on synthetic data for segmentation (2.1), compliance (2.2), the effect model incl. the position-dependent `resistance_musculaire` carve-out and the anti-outlier cap (2.3), and the EMA update (2.4). Run with `npm test` inside the `api` container/image (no local Node install needed — `docker run --rm -v $(pwd)/api:/app -w /app node:20-alpine sh -c "npm install && npm test"`).
+`api/src/scoring/*.test.ts` — unit tests on synthetic data for segmentation (2.1), compliance (2.2), the effect model incl. the position-dependent `resistance_musculaire` carve-out and the anti-outlier cap (2.3), and the cumulative EMA (2.4). `api/src/routes/seances.test.ts` — HTTP tests of the seances and radar-cumule routes against a temporary SQLite database.
+
+Run with `npm test` in a `node:20-alpine` container (no local Node install needed; the anonymous `/app/node_modules` volume keeps the container's native `better-sqlite3` build off the host):
+
+```bash
+docker run --rm -v "$PWD/api:/app" -v /app/node_modules -v "$PWD/config:/config:ro" \
+  -e SCORING_CONFIG_PATH=/config/scoring.json -w /app node:20-alpine \
+  sh -c "npm ci && npm test"
+```
+
+`mcp/src/tools.test.ts` — checks the API paths the MCP tools actually call (ids are validated as UUIDs, so a `../` id can't reach another API route). Run the same way with `-v "$PWD/mcp:/app"` and `npm install --no-package-lock && npm test`.
+
+CI (`.github/workflows/build.yml`) runs both suites plus `tsc --noEmit` in the `Tests API` and `Tests MCP` jobs on every PR and push to `main`; image builds and the deploy only run once both pass.

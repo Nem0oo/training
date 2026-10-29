@@ -8,8 +8,8 @@ export function Historique() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.seances.list({ etat: 'terminee', limit: 100 })
-      .then(data => { setSeances(data.sort((a, b) => b.date.localeCompare(a.date))); setLoading(false) })
+    api.seances.list({ etat: 'terminee', order: 'desc', limit: 100 })
+      .then(data => { setSeances(data); setLoading(false) })
       .catch(console.error)
   }, [])
 

@@ -5,6 +5,7 @@ import { runScoringPipeline } from '../scoring/pipeline.js'
 import { loadScoringConfig } from '../scoring/config.js'
 import { estimateDistancePrevueKm } from '../scoring/distance.js'
 import type { BlocPrescrit } from '../scoring/types.js'
+import { asyncHandler } from '../lib/asyncHandler.js'
 
 const router = Router()
 
@@ -27,6 +28,34 @@ async function maybeTriggerScoring(id: string, newGarminActivityId: unknown, pre
 const CATEGORIES = ['cardio', 'renforcement', 'competition', 'autre']
 const NATURES_EFFORT = ['continu', 'repetition_courte', 'non_applicable']
 const ZONES = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5']
+// Doivent rester alignés sur les CHECK de la table seances (db.ts).
+const TYPES = ['endurance', 'fractionne', 'cotes', 'recuperation', 'competition', 'autre']
+const ETATS = ['planifiee', 'en_cours', 'terminee', 'annulee']
+
+function isValidDate(value: unknown): boolean {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const d = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value
+}
+
+// Validation commune POST/PUT des champs à valeurs fermées. Sur PUT, un champ
+// absent (undefined) n'est pas validé : il n'est pas modifié.
+function validateSeanceFields(body: Record<string, unknown>): string | null {
+  if (body.date !== undefined && !isValidDate(body.date)) return `date invalide (YYYY-MM-DD attendu) : ${body.date}`
+  if (body.type !== undefined && !TYPES.includes(body.type as string)) return `type invalide : ${body.type}`
+  if (body.etat !== undefined && !ETATS.includes(body.etat as string)) return `etat invalide : ${body.etat}`
+  if (body.categorie !== undefined && !CATEGORIES.includes(body.categorie as string)) return `categorie invalide : ${body.categorie}`
+  if (body.nature_effort !== undefined && !NATURES_EFFORT.includes(body.nature_effort as string)) return `nature_effort invalide : ${body.nature_effort}`
+  if (body.blocs_prescrits !== undefined) {
+    const err = validateBlocsPrescrits(body.blocs_prescrits)
+    if (err) return err
+  }
+  if (body.tags !== undefined) {
+    const err = validateTags(body.tags)
+    if (err) return err
+  }
+  return null
+}
 
 function validateBlocsPrescrits(blocs: unknown): string | null {
   if (blocs === undefined || blocs === null) return null
@@ -65,12 +94,17 @@ router.get('/', (req, res) => {
   let query = 'SELECT * FROM seances WHERE 1=1'
   const args: unknown[] = []
 
-  const { from, to, type, etat, limit } = req.query
+  const { from, to, type, etat, limit, order } = req.query
+  if (order !== undefined && order !== 'asc' && order !== 'desc') {
+    res.status(400).json({ error: `order invalide : ${order} (asc ou desc)` })
+    return
+  }
   if (from)  { query += ' AND date >= ?'; args.push(from) }
   if (to)    { query += ' AND date <= ?'; args.push(to) }
   if (type)  { query += ' AND type = ?';  args.push(type) }
   if (etat)  { query += ' AND etat = ?';  args.push(etat) }
-  query += ' ORDER BY date ASC LIMIT ?'
+  // asc par défaut (Planning) ; desc pour récupérer les plus récentes (Historique, MCP).
+  query += ` ORDER BY date ${order === 'desc' ? 'DESC' : 'ASC'} LIMIT ?`
   args.push(Number(limit) || 50)
 
   const rows = db.prepare(query).all(...args) as Record<string, unknown>[]
@@ -84,7 +118,7 @@ router.get('/tags', (req, res) => {
   res.json({ data: [...set].sort() })
 })
 
-router.post('/', async (req, res) => {
+router.post('/', asyncHandler(async (req, res) => {
   const {
     nom, date, contenu, type, etat, commentaire_coach,
     condition_signalee, garmin_activity_id, categorie, nature_effort, blocs_prescrits, tags,
@@ -93,18 +127,8 @@ router.post('/', async (req, res) => {
     res.status(400).json({ error: 'nom, date et type sont requis' })
     return
   }
-  if (categorie !== undefined && !CATEGORIES.includes(categorie)) {
-    res.status(400).json({ error: `categorie invalide : ${categorie}` })
-    return
-  }
-  if (nature_effort !== undefined && !NATURES_EFFORT.includes(nature_effort)) {
-    res.status(400).json({ error: `nature_effort invalide : ${nature_effort}` })
-    return
-  }
-  const blocsError = validateBlocsPrescrits(blocs_prescrits)
-  if (blocsError) { res.status(400).json({ error: blocsError }); return }
-  const tagsError = validateTags(tags)
-  if (tagsError) { res.status(400).json({ error: tagsError }); return }
+  const validationError = validateSeanceFields(req.body)
+  if (validationError) { res.status(400).json({ error: validationError }); return }
 
   const distancePrevueKm = estimateDistancePrevueKm(
     (blocs_prescrits as BlocPrescrit[] | undefined) ?? null,
@@ -136,7 +160,7 @@ router.post('/', async (req, res) => {
   const scoring_error = await maybeTriggerScoring(id, garmin_activity_id, null)
   const data = deserialize(db.prepare('SELECT * FROM seances WHERE id = ?').get(id) as Record<string, unknown>)
   res.status(201).json(scoring_error ? { data, scoring_error } : { data })
-})
+}))
 
 router.get('/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM seances WHERE id = ?').get(req.params.id) as Record<string, unknown> | undefined
@@ -144,26 +168,12 @@ router.get('/:id', (req, res) => {
   res.json({ data: deserialize(row) })
 })
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', asyncHandler(async (req, res) => {
   const existing = db.prepare('SELECT * FROM seances WHERE id = ?').get(req.params.id) as Record<string, unknown> | undefined
   if (!existing) { res.status(404).json({ error: 'Séance introuvable' }); return }
 
-  if (req.body.categorie !== undefined && !CATEGORIES.includes(req.body.categorie)) {
-    res.status(400).json({ error: `categorie invalide : ${req.body.categorie}` })
-    return
-  }
-  if (req.body.nature_effort !== undefined && !NATURES_EFFORT.includes(req.body.nature_effort)) {
-    res.status(400).json({ error: `nature_effort invalide : ${req.body.nature_effort}` })
-    return
-  }
-  if (req.body.blocs_prescrits !== undefined) {
-    const blocsError = validateBlocsPrescrits(req.body.blocs_prescrits)
-    if (blocsError) { res.status(400).json({ error: blocsError }); return }
-  }
-  if (req.body.tags !== undefined) {
-    const tagsError = validateTags(req.body.tags)
-    if (tagsError) { res.status(400).json({ error: tagsError }); return }
-  }
+  const validationError = validateSeanceFields(req.body)
+  if (validationError) { res.status(400).json({ error: validationError }); return }
 
   // effet_reel_brut est une sortie du moteur de scoring : jamais acceptée en
   // écriture via create_seance/update_seance (MCP ou UI). distance_prevue_km
@@ -190,13 +200,19 @@ router.put('/:id', async (req, res) => {
     : (existing.blocs_prescrits ? JSON.parse(existing.blocs_prescrits as string) : null)
   const distancePrevueKm = estimateDistancePrevueKm(blocsPrescritsFinal, loadScoringConfig().estimation_distance)
 
-  db.prepare(`UPDATE seances SET ${fields}, distance_prevue_km = ?, updated_at = ? WHERE id = ?`)
+  // Activité Garmin déliée : les sorties du moteur ne correspondent plus à
+  // rien, on les efface (sinon elles restaient comptées dans le volume réalisé
+  // et le radar cumulé).
+  const garminDelie = 'garmin_activity_id' in req.body && !req.body.garmin_activity_id
+  const clearScoring = garminDelie ? ', effet_reel_brut = NULL, conformite = NULL, distance_realisee_km = NULL' : ''
+
+  db.prepare(`UPDATE seances SET ${fields}, distance_prevue_km = ?, updated_at = ?${clearScoring} WHERE id = ?`)
     .run(...values, distancePrevueKm, new Date().toISOString(), req.params.id)
 
   const scoring_error = await maybeTriggerScoring(req.params.id, req.body.garmin_activity_id, existing.garmin_activity_id)
   const data = deserialize(db.prepare('SELECT * FROM seances WHERE id = ?').get(req.params.id) as Record<string, unknown>)
   res.json(scoring_error ? { data, scoring_error } : { data })
-})
+}))
 
 // 3.1 — radar PAR SÉANCE : proportions internes de l'impact de cette séance
 // entre les 7 axes, normalisées par la somme de ses propres valeurs (PAS la

@@ -9,8 +9,55 @@ on:
       - main
 
 jobs:
+  # Bloquant : les jobs de build (PR) et de push/déploiement (main) en
+  # dépendent. Pour empêcher le merge d'une PR rouge, ajouter « Tests API »
+  # et « Tests MCP » comme status checks requis dans la règle de protection de main.
+  test:
+    name: Tests API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Type-check
+        run: npx tsc --noEmit
+      - name: Run tests
+        run: npm test
+
+  test_mcp:
+    name: Tests MCP
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Pas de package-lock.json dans mcp/ : npm install plutôt que npm ci.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type-check
+        run: npx tsc --noEmit
+      - name: Run tests
+        run: npm test
+
   build_and_test:
     if: github.event_name == 'pull_request'
+    needs: [test, test_mcp]
     name: Build Docker Images
     runs-on: ubuntu-latest
     steps:
@@ -45,6 +92,7 @@ jobs:
 
   build_and_push_to_docker_hub:
     if: github.event_name == 'push'
+    needs: [test, test_mcp]
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
     steps:

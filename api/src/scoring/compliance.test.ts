@@ -42,3 +42,19 @@ test('sans blocs_prescrits, la conformité globale par défaut ne pénalise pas 
   const result = computeCompliance('cardio', segments, null, 20 * 60, THRESHOLDS)
   assert.equal(result.conformite_globale_pct, 100)
 })
+
+test('cardio : un dépassement dans une zone ne compense pas une zone prescrite non courue', () => {
+  // Prescrit 28' Z1 + 20' Z4, réalisé 50' Z1 et aucune Z4 : les intervalles
+  // ont été sautés, la conformité d'intensité ne doit pas atteindre 100%.
+  const segments: Segment[] = [
+    { zone: 'Z1', duration_s: 50 * 60, avg_temperature_c: null, cumulative_duration_before_s: 0 },
+  ]
+  const result = computeCompliance(
+    'cardio', segments,
+    [{ zone_cible: 'Z1', duree_min: 28 }, { zone_cible: 'Z4', duree_min: 20 }],
+    50 * 60, THRESHOLDS,
+  )
+  // Z1 plafonnée à 100%, Z4 à 0% -> (100*28 + 0*20) / 48
+  assert.ok(Math.abs((result.conformite_intensite_pct as number) - (100 * 28 / 48)) < 0.01)
+  assert.ok(result.conformite_globale_pct < 100)
+})

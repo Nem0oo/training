@@ -10,6 +10,7 @@ type NonMuscularAxis = Exclude<Axis, 'resistance_musculaire'>
 
 interface ScoringConfig {
   min_interval_seconds: number
+  lissage_puissance_seconds?: number
   poids_intensite: Record<Zone, number>
   poids_renfo: number
   repartition: {

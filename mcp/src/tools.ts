@@ -26,12 +26,24 @@ async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
   return json.data as T
 }
 
+// Les ids de séance sont des UUID (générés par l'API ou import_seances.py).
+// Tout autre format est refusé avant l'appel : sans ça, un id comme
+// "../power-zones/<id>" était résolu par fetch vers une autre route de l'API,
+// avec la clé interne (accès à des routes que le MCP n'expose pas).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function seancePath(id: string): string {
+  if (!UUID_RE.test(id)) throw new Error(`id invalide (UUID attendu) : ${id}`)
+  return `/api/seances/${encodeURIComponent(id)}`
+}
+
 export function listSeances(params: {
   from?: string
   to?: string
   type?: string
   etat?: string
   limit?: number
+  order?: 'asc' | 'desc'
 }) {
   const qs = new URLSearchParams()
   if (params.from) qs.set('from', params.from)
@@ -39,12 +51,15 @@ export function listSeances(params: {
   if (params.type) qs.set('type', params.type)
   if (params.etat) qs.set('etat', params.etat)
   if (params.limit) qs.set('limit', String(params.limit))
+  // Plus récentes d'abord par défaut : sans filtre de date, l'ordre croissant
+  // renvoyait les 50 premières séances du plan plutôt que l'actualité.
+  qs.set('order', params.order ?? 'desc')
   const query = qs.toString()
   return apiRequest(`/api/seances${query ? '?' + query : ''}`)
 }
 
-export function getSeance(id: string) {
-  return apiRequest(`/api/seances/${id}`)
+export async function getSeance(id: string) {
+  return apiRequest(seancePath(id))
 }
 
 export function listTags() {
@@ -68,7 +83,7 @@ export function createSeance(data: {
   return apiRequest('/api/seances', { method: 'POST', body: JSON.stringify(data) })
 }
 
-export function updateSeance(id: string, data: {
+export async function updateSeance(id: string, data: {
   nom?: string
   date?: string
   contenu?: string
@@ -82,11 +97,11 @@ export function updateSeance(id: string, data: {
   blocs_prescrits?: unknown
   tags?: string[]
 }) {
-  return apiRequest(`/api/seances/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+  return apiRequest(seancePath(id), { method: 'PUT', body: JSON.stringify(data) })
 }
 
-export function deleteSeance(id: string) {
-  return apiRequest(`/api/seances/${id}`, { method: 'DELETE' }).then(() => ({ success: true }))
+export async function deleteSeance(id: string) {
+  return apiRequest(seancePath(id), { method: 'DELETE' }).then(() => ({ success: true }))
 }
 
 export function getStats(weeks?: number) {
@@ -106,8 +121,8 @@ export function listPowerZones() {
 }
 
 // 3.1 — radar par séance (proportions internes, échelle propre à la séance).
-export function getSeanceRadar(id: string) {
-  return apiRequest(`/api/seances/${id}/radar`)
+export async function getSeanceRadar(id: string) {
+  return apiRequest(`${seancePath(id)}/radar`)
 }
 
 // 3.2 — radar cumulé (état de forme global, échelle EMA — jamais la même
