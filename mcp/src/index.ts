@@ -73,6 +73,7 @@ server.addTool({
     type: seanceType.optional(),
     etat: seanceEtat.describe("Filtre optionnel par état. Omettre ce champ pour récupérer les séances de tous les états.").optional(),
     limit: z.number().describe('Nombre max de résultats (défaut 50)').optional(),
+    order: z.enum(['asc', 'desc']).describe("Tri par date : 'desc' (défaut, plus récentes d'abord) ou 'asc'").optional(),
   }),
   execute: async (args) => JSON.stringify(await run(() => listSeances(args)), null, 2),
 })

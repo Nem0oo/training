@@ -4,7 +4,6 @@ import { loadScoringConfig } from './config.js'
 import { segmentByPowerZone, type PowerZoneBound } from './segmentation.js'
 import { computeCompliance } from './compliance.js'
 import { computeEffect, computeFacteurExecution } from './effect.js'
-import { updateEma } from './ema.js'
 import { AXES, type BlocPrescrit, type Categorie, type EffetReelBrut, type NatureEffort } from './types.js'
 
 interface SeanceRow {
@@ -37,24 +36,6 @@ function getPlafondReference(categorie: Categorie, excludeId: string, fenetre: n
   return budgets.reduce((a, b) => a + b, 0) / budgets.length
 }
 
-function getRadarCumule(): EffetReelBrut | null {
-  const row = db.prepare('SELECT * FROM radar_cumule WHERE id = ?').get('singleton') as (EffetReelBrut & { id: string }) | undefined
-  if (!row) return null
-  return Object.fromEntries(AXES.map(a => [a, row[a]])) as EffetReelBrut
-}
-
-function saveRadarCumule(effet: EffetReelBrut) {
-  const now = new Date().toISOString()
-  const cols = AXES.join(', ')
-  const placeholders = AXES.map(() => '?').join(', ')
-  const updates = AXES.map(a => `${a} = excluded.${a}`).join(', ')
-  db.prepare(`
-    INSERT INTO radar_cumule (id, ${cols}, updated_at)
-    VALUES ('singleton', ${placeholders}, ?)
-    ON CONFLICT(id) DO UPDATE SET ${updates}, updated_at = excluded.updated_at
-  `).run(...AXES.map(a => effet[a]), now)
-}
-
 // Point d'entrée unique du déclenchement (étape 4) — appelé par les routes
 // seances après un create/update avec garmin_activity_id non-vide, que
 // l'écriture vienne du canal MCP (proxié) ou UI. Ne relance jamais
@@ -72,7 +53,7 @@ export async function runScoringPipeline(seanceId: string, garminActivityId: str
   const categorie = seance.categorie
   const segments = categorie === 'renforcement' || categorie === 'autre'
     ? []
-    : segmentByPowerZone(activity, getPowerZones(), config.min_interval_seconds)
+    : segmentByPowerZone(activity, getPowerZones(), config.min_interval_seconds, config.lissage_puissance_seconds ?? 0)
 
   const compliance = computeCompliance(categorie, segments, blocsPrescrits, activity.summary.duration_seconds, config.conformite_statuts)
   const facteurExecution = computeFacteurExecution(
@@ -100,7 +81,6 @@ export async function runScoringPipeline(seanceId: string, garminActivityId: str
 
   db.prepare('UPDATE seances SET effet_reel_brut = ?, conformite = ?, distance_realisee_km = ?, updated_at = ? WHERE id = ?')
     .run(JSON.stringify(effet), JSON.stringify(compliance), activity.summary.total_distance_km, new Date().toISOString(), seanceId)
-
-  const nouveauCumule = updateEma(getRadarCumule(), effet, config.constante_temps_ema_jours)
-  saveRadarCumule(nouveauCumule)
+  // Le radar cumulé n'est plus mis à jour ici : il est recalculé à la
+  // lecture depuis les séances scorées (routes/radar_cumule.ts, scoring/ema.ts).
 }

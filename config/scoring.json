@@ -3,6 +3,9 @@
 
   "min_interval_seconds": 0,
 
+  "_comment_lissage": "Fenêtre (s) de la moyenne glissante centrée appliquée à power_w avant le classement par zone, pour éviter qu'un bruit capteur autour d'une borne de zone n'éclate la séance en fragments d'1s. 0 = pas de lissage. Trop grand, il étale les répétitions courtes.",
+  "lissage_puissance_seconds": 10,
+
   "poids_intensite": {
     "Z1": 1.0,
     "Z2": 1.5,

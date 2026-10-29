@@ -6,7 +6,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
-    "test": "tsx --test src/scoring/*.test.ts"
+    "test": "tsx --test src/*/*.test.ts",
+    "test:scoring": "tsx --test src/scoring/*.test.ts"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.3",

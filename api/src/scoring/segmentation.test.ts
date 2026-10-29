@@ -27,7 +27,7 @@ test('un run continu de 90s dans une seule zone produit un segment de cette dur�
   const segments = segmentByPowerZone(activityFromPowers(powers), ZONES, 60)
   assert.equal(segments.length, 1)
   assert.equal(segments[0].zone, 'Z2')
-  assert.equal(segments[0].duration_s, 89) // dernier - premier timestamp, en secondes
+  assert.equal(segments[0].duration_s, 90) // 90 échantillons de 1s chacun
 })
 
 test('un intervalle <60s est ignoré (répétitions courtes)', () => {
@@ -66,4 +66,29 @@ test('lève une erreur si power_w est absent de la série', () => {
   const activity = activityFromPowers([])
   activity.series.power_w = null
   assert.throws(() => segmentByPowerZone(activity, ZONES, 60))
+})
+
+test('la somme des segments couvre toute la séance (chaque échantillon dure jusqu\'au suivant)', () => {
+  const powers = [...Array(70).fill(50), ...Array(80).fill(150)] // Z1 70s, Z2 80s
+  const segments = segmentByPowerZone(activityFromPowers(powers), ZONES, 0)
+  assert.deepEqual(segments.map(s => s.duration_s), [70, 80])
+})
+
+test('une puissance bruitée autour d\'une limite de zone est lissée avant classement', () => {
+  // 30 min à 1 Hz, alternance 90 W / 108 W (moyenne 99 W -> Z1) : sans lissage,
+  // la séance éclate en 1800 fragments d'1s alternant Z1/Z2.
+  const powers = Array.from({ length: 1800 }, (_, i) => (i % 2 === 0 ? 90 : 108))
+  const segments = segmentByPowerZone(activityFromPowers(powers), ZONES, 60, 10)
+  assert.equal(segments.length, 1)
+  assert.equal(segments[0].zone, 'Z1')
+  // Tolérance : fenêtre tronquée en bord de série (1-2s de blip écartées).
+  assert.ok(segments[0].duration_s >= 1790, `durée ${segments[0].duration_s}s`)
+})
+
+test('le lissage préserve un vrai changement d\'intensité', () => {
+  const powers = [...Array(300).fill(80), ...Array(300).fill(350)] // 5' Z1 puis 5' Z4
+  const segments = segmentByPowerZone(activityFromPowers(powers), ZONES, 60, 10)
+  assert.deepEqual(segments.map(s => s.zone), ['Z1', 'Z4'])
+  const total = segments.reduce((a, s) => a + s.duration_s, 0)
+  assert.ok(total >= 590, `durée totale ${total}s`)
 })

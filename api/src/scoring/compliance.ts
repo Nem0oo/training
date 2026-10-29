@@ -60,8 +60,11 @@ export function computeCompliance(
 
   const zonesAvecPrescription = parZone.filter(z => z.temps_prescrit_min > 0)
   const totalPrescrit = zonesAvecPrescription.reduce((sum, z) => sum + z.temps_prescrit_min, 0)
+  // Ratio plafonné à 100 par zone : un dépassement dans une zone (ex : Z1
+  // rallongée) ne doit pas compenser une zone prescrite non courue (ex : Z4
+  // sautée). ratio_pct par zone reste brut pour l'affichage ✅/⚠️/❌.
   const conformiteIntensitePct = totalPrescrit > 0
-    ? zonesAvecPrescription.reduce((sum, z) => sum + (z.ratio_pct as number) * z.temps_prescrit_min, 0) / totalPrescrit
+    ? zonesAvecPrescription.reduce((sum, z) => sum + Math.min(z.ratio_pct as number, 100) * z.temps_prescrit_min, 0) / totalPrescrit
     : null
 
   const termes = [conformiteIntensitePct, dureeConformitePct].filter((v): v is number => v !== null)

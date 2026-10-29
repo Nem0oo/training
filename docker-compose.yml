@@ -14,6 +14,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
       - SCORING_CONFIG_PATH=/config/scoring.json
+      - TZ=${TZ:-UTC}
       - GARMIN_API_KEY=${GARMIN_API_KEY}
       - GARMIN_BASE_URL=${GARMIN_BASE_URL}
     healthcheck:
