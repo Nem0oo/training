@@ -14,6 +14,7 @@ import {
   listTags,
   getVolume,
 } from './tools.js'
+import { authenticateRequest } from './auth.js'
 
 const PORT = Number(process.env.PORT ?? 3002)
 const API_KEY = process.env.MCP_API_KEY
@@ -49,19 +50,7 @@ const server = new FastMCP({
   name: 'coach-running',
   version: '1.0.0',
   health: { enabled: true, path: '/health' },
-  authenticate: async (request) => {
-    const fromHeader = request.headers['x-api-key'] as string | undefined
-    const authHeader = request.headers['authorization'] as string | undefined
-    const fromBearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined
-    const url = new URL(request.url ?? '', 'http://localhost')
-    const fromQuery = url.searchParams.get('api_key') ?? undefined
-    const provided = fromHeader ?? fromBearer ?? fromQuery
-
-    if (!provided || provided !== API_KEY) {
-      throw new Response(null, { status: 401, statusText: 'Unauthorized — clé API invalide ou absente' })
-    }
-    return { apiKey: provided }
-  },
+  authenticate: async (request) => authenticateRequest(request, API_KEY),
 })
 
 server.addTool({
@@ -204,4 +193,4 @@ await server.start({
 
 console.log(`MCP server listening on http://0.0.0.0:${PORT}`)
 console.log(`  Endpoint : /mcp (Streamable HTTP)  +  /sse (legacy SSE, built in)`)
-console.log(`  Auth     : X-Api-Key / Bearer / ?api_key`)
+console.log(`  Auth     : X-Api-Key / Authorization: Bearer`)

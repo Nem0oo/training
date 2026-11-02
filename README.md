@@ -55,7 +55,7 @@ All endpoints (except `/api/health` and `/api/auth/login`) require an `Authoriza
 
 ## MCP tools
 
-The MCP server (`coach-running`) exposes the following tools to an AI agent, authenticated via `X-Api-Key`, `Authorization: Bearer`, or `?api_key=`:
+The MCP server (`coach-running`) exposes the following tools to an AI agent, authenticated via the `X-Api-Key` or `Authorization: Bearer` header (a key passed in the URL query string is rejected with 401):
 
 | Tool | Description |
 |------|--------------|
