@@ -2,7 +2,10 @@
   "mcpServers": {
     "coach-running": {
       "transport": "sse",
-      "url": "https://${PROD_URL}/mcp/sse?api_key=${MCP_API_KEY}",
+      "url": "https://${PROD_URL}/mcp/sse",
+      "headers": {
+        "X-Api-Key": "${MCP_API_KEY}"
+      },
       "description": "Coach IA — lecture/écriture des séances d'entraînement"
     }
   }
