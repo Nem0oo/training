@@ -16,6 +16,12 @@ api/dist/
 mcp/dist/
 pwa/dist/
 
+# Caches
+*.tsbuildinfo
+__pycache__/
+*.pyc
+.pytest_cache/
+
 # Logs
 *.log
 npm-debug.log*
@@ -23,3 +29,9 @@ npm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+CLAUDE-SECURITY-*/

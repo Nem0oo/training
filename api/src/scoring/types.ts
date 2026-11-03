@@ -21,7 +21,9 @@ export interface BlocPrescrit {
   repetitions?: number
 }
 
-// Activité Garmin telle que renvoyée par garmin-bridge (/activities/{id}/json).
+// Activité Garmin telle que renvoyée par garmin-gateway
+// (GET /api/v1/activities/{id}/series). Seules les séries utilisées par le
+// scoring sont typées ; les autres (hr_bpm, speed_kmh…) sont ignorées.
 export interface GarminActivity {
   activity_id: string
   summary: {
