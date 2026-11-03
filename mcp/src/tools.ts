@@ -12,6 +12,19 @@ if (!INTERNAL_API_KEY) {
 }
 
 async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
+  const json = await apiRequestRaw(path, options)
+  return json?.data as T
+}
+
+// Écriture d'une séance : l'API renvoie { data, scoring_error } quand le moteur
+// de scoring échoue (la séance est écrite quand même). Le message est ajouté
+// aux champs de la séance pour que le client MCP le voie.
+async function apiWriteSeance(path: string, options: RequestInit) {
+  const json = await apiRequestRaw(path, options)
+  return json.scoring_error ? { ...json.data, scoring_error: json.scoring_error } : json.data
+}
+
+async function apiRequestRaw(path: string, options?: RequestInit) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
@@ -20,10 +33,10 @@ async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
       ...options?.headers,
     },
   })
-  if (res.status === 204) return undefined as T
+  if (res.status === 204) return undefined
   const json = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(json.error ?? `API error: HTTP ${res.status}`)
-  return json.data as T
+  return json
 }
 
 // Les ids de séance sont des UUID (générés par l'API ou import_seances.py).
@@ -80,7 +93,7 @@ export function createSeance(data: {
   blocs_prescrits?: unknown
   tags?: string[]
 }) {
-  return apiRequest('/api/seances', { method: 'POST', body: JSON.stringify(data) })
+  return apiWriteSeance('/api/seances', { method: 'POST', body: JSON.stringify(data) })
 }
 
 export async function updateSeance(id: string, data: {
@@ -97,7 +110,7 @@ export async function updateSeance(id: string, data: {
   blocs_prescrits?: unknown
   tags?: string[]
 }) {
-  return apiRequest(seancePath(id), { method: 'PUT', body: JSON.stringify(data) })
+  return apiWriteSeance(seancePath(id), { method: 'PUT', body: JSON.stringify(data) })
 }
 
 export async function deleteSeance(id: string) {
