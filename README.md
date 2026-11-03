@@ -4,7 +4,7 @@ A self-hosted running training tracker: plan and log training sessions, track VM
 
 ## Why
 
-After [Garmin Bridge](https://github.com/Nem0oo/garmin-bridge), which exposes my Garmin health data to an AI agent, I was missing a place where that same agent could write my training plan instead of just reading it off screenshots. Coach Running is that place: a PWA to log and view my sessions, and an MCP server so the AI coach can create, update, and comment on my sessions directly.
+After giving an AI agent access to my Garmin health data (now served by [garmin-gateway](https://github.com/Nem0oo/garmin-gateway)), I was missing a place where that same agent could write my training plan instead of just reading it off screenshots. Coach Running is that place: a PWA to log and view my sessions, and an MCP server so the AI coach can create, update, and comment on my sessions directly.
 
 ## What it does
 
@@ -92,8 +92,8 @@ docker compose up
 | `JWT_SECRET` | Secret used to sign JWT tokens |
 | `MCP_API_KEY` | API key to authenticate calls to the MCP server |
 | `INTERNAL_API_KEY` | Shared secret for server-to-server calls: the MCP server proxies `create_seance`/`update_seance`/... to the API instead of writing to SQLite directly, so both channels run the exact same server code |
-| `GARMIN_API_KEY` | API key for [garmin-bridge](https://github.com/Nem0oo/garmin-bridge) (separate service), used by the scoring engine to fetch activity data |
-| `GARMIN_BASE_URL` | Base URL of your garmin-bridge instance (required, no default) |
+| `GARMIN_API_KEY` | The `REST_API_KEY` of your [garmin-gateway](https://github.com/Nem0oo/garmin-gateway) instance (separate service, read-only REST API), sent as `Authorization: Bearer` by the scoring engine to fetch activity data. Not the gateway's MCP key |
+| `GARMIN_BASE_URL` | Base URL of your garmin-gateway instance, without a trailing slash or `/api/v1` (required, no default) |
 | `PROD_URL` | Production domain, used in `mcp.json` to configure the MCP client |
 
 ## Required CI secrets
@@ -115,7 +115,7 @@ A fully deterministic (no ML) engine that scores a running session against what 
 
 ### How it works
 
-1. **Trigger**: setting `garmin_activity_id` to a non-empty value on `create_seance`/`update_seance` — via the UI or MCP, both run the exact same code (`api/src/routes/seances.ts`) — fetches that activity from [garmin-bridge](https://github.com/Nem0oo/garmin-bridge) (`GARMIN_API_KEY`/`GARMIN_BASE_URL`) and runs the pipeline below. `condition_signalee: true` skips scoring entirely. There is no status field and no automatic retry: if the fetch fails (e.g. activity not synced yet on the Garmin side), the response carries a `scoring_error` message and the session write still succeeds — clear `garmin_activity_id` and set it again to retry.
+1. **Trigger**: setting `garmin_activity_id` to a non-empty value on `create_seance`/`update_seance` — via the UI or MCP, both run the exact same code (`api/src/routes/seances.ts`) — fetches that activity's time series from [garmin-gateway](https://github.com/Nem0oo/garmin-gateway) (`GET {GARMIN_BASE_URL}/api/v1/activities/{id}/series`, Bearer `GARMIN_API_KEY`; client in `api/src/garmin/client.ts`) and runs the pipeline below. Only `timestamps`, `power_w` and `temperature_c` are used; the other series the gateway returns are ignored. `condition_signalee: true` skips scoring entirely. There is no status field and no automatic retry: if the fetch fails (e.g. activity not synced yet on the Garmin side), the response carries a `scoring_error` message and the session write still succeeds — clear `garmin_activity_id` and set it again to retry.
 2. **Segmentation** (`api/src/scoring/segmentation.ts`): the realized activity is cut into continuous, time-ordered intervals by `power_w` zone (never `hr_bpm` — heart rate lags too much for sub-minute intervals). `power_w` is first smoothed with a centered rolling mean (`lissage_puissance_seconds`, 10s, config) so sensor noise around a zone boundary doesn't fragment the session. Each sample lasts until the next one. Any interval under `min_interval_seconds` (0s by default, config) is dropped.
 3. **Compliance** (`api/src/scoring/compliance.ts`): realized-vs-prescribed time per zone (✅/⚠️/❌ per zone, no single composite score), plus overall duration compliance. `power_w` is the only decisional signal; pace is informational only, never scored.
 4. **Effect model** (`api/src/scoring/effect.ts`): converts each segment into a budget (`hours × poids_intensite[zone]`) and splits it across 7 axes (`endurance_fondamentale`, `seuil_lactique`, `vo2max`, `vma`, `resistance_musculaire`, `economie_course`, `resilience_thermique`) using the repartition table in `config/scoring.json`. `resistance_musculaire` is a per-segment carve-out driven by cumulative continuous-effort duration *before* that segment in the session — same zone/duration segment produces a different effect depending on where it falls in the session. Scaled by an execution factor (from compliance) and capped by an anti-outlier guard against a moving average of comparable recent sessions.
@@ -138,7 +138,7 @@ A fully deterministic (no ML) engine that scores a running session against what 
 
 ### Tests
 
-`api/src/scoring/*.test.ts` — unit tests on synthetic data for segmentation (2.1), compliance (2.2), the effect model incl. the position-dependent `resistance_musculaire` carve-out and the anti-outlier cap (2.3), and the cumulative EMA (2.4). `api/src/routes/seances.test.ts` — HTTP tests of the seances and radar-cumule routes against a temporary SQLite database.
+`api/src/scoring/*.test.ts` — unit tests on synthetic data for segmentation (2.1), compliance (2.2), the effect model incl. the position-dependent `resistance_musculaire` carve-out and the anti-outlier cap (2.3), and the cumulative EMA (2.4). `api/src/scoring/gateway-contract.test.ts` runs segmentation on `api/src/scoring/fixtures/gateway-series.json`, a response shaped like garmin-gateway's REST contract. `api/src/garmin/client.test.ts` checks the gateway URL, Bearer header and error handling with a mocked `fetch`. `api/src/routes/seances.test.ts` — HTTP tests of the seances and radar-cumule routes against a temporary SQLite database.
 
 Run with `npm test` in a `node:20-alpine` container (no local Node install needed; the anonymous `/app/node_modules` volume keeps the container's native `better-sqlite3` build off the host):
 
